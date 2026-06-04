@@ -33,7 +33,7 @@ function AppContent() {
   const backgroundOpacity = useTransform(x, [0, 80], [0, 0.1]);
   const sidebarTranslateX = useTransform(x, [0, 80], ['translateX(0)', 'translateX(100%)']);
 
-  const handleDragEnd = (_, info) => {
+  const handleDragEnd = (_: unknown, info: { offset: { x: number } }) => {
     if (info.offset.x > 80) {
       animate(x, 80, { type: 'spring', stiffness: 300, damping: 30 });
       setTimeout(() => {
