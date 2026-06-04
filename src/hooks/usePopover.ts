@@ -1,7 +1,7 @@
 /* ================================================
    FILE: src/hooks/usePopover.ts
    ================================================ */
-import { usePopoverContext } from '../components/PopoverContext'; // ⚡ 修复路径指向 components
+import { usePopoverContext } from '@/context/PopoverContext';
 
 export function usePopover() {
   const context = usePopoverContext();
@@ -19,6 +19,6 @@ export function usePopover() {
     closePopup: context.closePopup,
     navigatePopover: context.navigatePopover,
     handleDragStart: () => context.setIsUserDragging(true),
-    handleDragEnd: () => context.setIsUserDragging(false)
+    handleDragEnd: () => context.setIsUserDragging(false),
   };
 }

@@ -14,8 +14,8 @@ export interface PopupData {
   depth: number;
   isPinned: boolean;
   isMinimized: boolean;
-  history?: string[];      // ⚡ 新增：Popovers 专属历史记录
-  historyIndex?: number;   // ⚡ 新增：当前浏览指向位置
+  history?: string[];
+  historyIndex?: number;
 }
 
 export interface WikiEntry {
@@ -29,13 +29,11 @@ export type WikiDb = Record<string, WikiEntry>;
 
 export interface SidebarProps {
   isCollapsed: boolean;
-  onToggle: () => void;
   openPage: (page: string) => void;
   openCommandPalette: () => void;
   setStatus: (status: string) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  activePage: string;
 }
 
 import type React from 'react';
@@ -49,7 +47,7 @@ export interface PopoverCardProps {
   onSizeChange: (w: number, h: number) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  onLinkHover: (e: React.MouseEvent<HTMLSpanElement>, wikiId: string, depth: number) => void;
+  onLinkHover: (e: MouseEvent | React.MouseEvent<Element>, wikiId: string, depth?: number) => void;
   onLinkLeave: (wikiId: string) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
@@ -59,26 +57,8 @@ export interface EditorPageProps {
   isZenMode: boolean;
   onToggleZen: () => void;
   openPage: (page: string) => void;
-  setStatus: (status: string) => void;
 }
-
-export interface AppState {
-  activePage: string;
-  isSidebarCollapsed: boolean;
-  isSidebarHovered: boolean;
-  isZenMode: boolean;
-  isCommandPaletteOpen: boolean;
-  statusMsg: string;
-  showStatus: boolean;
-  quickCaptureText: string;
-}
-
-export type EditorSidebarTab = 'context' | 'annotations';
 
 export interface EditorSidebarProps {
   isZenMode: boolean;
-  activeTab: EditorSidebarTab;
-  onTabChange: (tab: EditorSidebarTab) => void;
-  setStatus: (status: string) => void;
-  documentText?: string;
 }

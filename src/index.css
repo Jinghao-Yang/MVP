@@ -1,6 +1,3 @@
-/* ================================================
-   FILE: src/index.css
-   ================================================ */
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
@@ -34,7 +31,7 @@ body {
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 14px; /* 提高基础字号 */
+  font-size: 14px; 
   
   background-size: 40px 40px, 40px 40px;
   background-image:
@@ -52,73 +49,11 @@ body {
 .spring-click:hover { transform: translateY(-2px) scale(1.01); }
 .spring-click:active { transform: translateY(1px) scale(0.96); transition: transform 0.15s ease; }
 
-/* ⚡ 【物理层级升级】：白色半透明内描边 + 极低透明度黑色阴影描边 + 微微立体阴影 */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  box-shadow: 
-    var(--shadow-glass), 
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 0 0 1px rgba(28, 28, 26, 0.03);
-  border-radius: 0px;
+.column-synthesis {
+  background: linear-gradient(180deg, rgba(112, 138, 116, 0.04) 0%, rgba(112, 138, 116, 0.01) 100%) !important;
+  border-top: 3px solid var(--bh-green) !important;
 }
 
-.glass-panel-deep {
-  background: rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
-  border: 1px solid rgba(255, 255, 255, 0.65);
-  box-shadow: 
-    0 24px 64px -12px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    0 0 0 1px rgba(28, 28, 26, 0.04);
-  border-radius: 0px;
-}
-
-.hover-ui {
-  border: 1px solid var(--ui-hidden);
-  background: transparent;
-  transition: border-color 0.4s ease, background-color 0.4s ease;
-}
-.hover-ui:hover {
-  border-color: var(--ui-hover);
-  background: rgba(255, 255, 255, 0.5);
-}
-
-.brutal-card {
-  position: relative;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--ui-hidden);
-  box-shadow: var(--shadow-card);
-  transition: transform 2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.8s ease, background-color 0.8s ease, box-shadow 0.8s ease;
-  cursor: pointer;
-  border-radius: 0px;
-}
-.brutal-card:hover {
-  border-color: var(--ui-hover);
-  transform: scale(1.03);
-  box-shadow: var(--shadow-glass);
-  background: rgba(255, 255, 255, 0.9);
-}
-
-/* ⚡ 【生产力看板】180ms 极速响应 */
-.kanban-column {
-  transition: background-color 180ms ease, border-color 180ms ease !important;
-}
-.kanban-column:hover {
-  transform: none !important;
-}
-.kanban-card {
-  transition: transform 180ms cubic-bezier(0.25, 1, 0.5, 1), border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease !important;
-}
-.kanban-card:hover {
-  transform: scale(1.02) !important;
-}
-
-/* 侧边栏过渡 */
 .sidebar {
   position: fixed;
   top: 16px; left: 16px; bottom: 16px;
@@ -152,113 +87,49 @@ body {
   box-shadow: none;
 }
 
-.action-icon {
-  opacity: 0;
-  transform: scale(0.8) translateX(-5px);
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+.cm-editor { background-color: transparent !important; }
+.cm-editor.cm-focused { outline: none !important; }
+.cm-scroller { font-family: inherit !important; overflow-x: hidden !important; }
+.cm-content {
+  padding: 0 !important;
+  font-family: 'Newsreader', serif !important;
+  font-size: 1.35rem !important;
+  line-height: 1.85 !important;
+  color: var(--text-secondary) !important;
 }
-.group:hover .action-icon {
-  opacity: 1;
-  transform: scale(1) translateX(0);
-}
+.cm-line { padding-bottom: 1em !important; }
 
-.stat-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.2rem 0.7rem;
-  font-size: 11px;
-  font-weight: 500;
-  background: transparent;
-  color: var(--text-muted);
-  transition: background-color 0.3s ease, color 0.3s ease;
-  cursor: pointer;
-}
-.stat-pill:hover {
-  background: rgba(255,255,255,0.6);
-  color: var(--text-main);
-}
-.stat-pill .stat-number { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--text-main); }
-
-/* 学术级极简双链 */
-.wiki-link {
-  color: var(--bh-red);
-  border-bottom: 1px dashed rgba(197, 83, 69, 0.4);
-  cursor: pointer;
-  padding: 0 4px;
-  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+/* 🌟 重构：双链学术级纯净悬浮动效 */
+.cm-link, .cm-url {
+  color: var(--bh-red) !important;
   position: relative;
-  background: transparent;
-}
-.wiki-link:hover {
-  background: rgba(197, 83, 69, 0.05);
-  border-bottom: 1px solid var(--bh-red);
+  text-decoration: none !important;
+  cursor: pointer;
+  padding: 0 2px;
+  border-radius: 3px;
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
-/* ⚡ 【微动效升级】：双链加载中 shimer 流转光效 */
-.wiki-link-loading {
-  position: relative;
-  color: var(--bh-blue);
-  animation: link-pulse 1.5s infinite alternate ease-in-out;
-}
-.wiki-link-loading::after {
+.cm-link::after, .cm-url::after {
   content: '';
   position: absolute;
-  left: 0; bottom: -1px;
-  width: 100%; height: 1px;
-  background: linear-gradient(90deg, transparent, var(--bh-blue), transparent);
-  background-size: 200% 100%;
-  animation: border-flow 1.5s infinite linear;
+  bottom: 0; left: 0;
+  width: 100%; height: 1.5px;
+  background-color: var(--bh-red);
+  opacity: 0.35;
+  transform-origin: left;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
 }
 
-@keyframes link-pulse {
-  0% { opacity: 0.7; }
-  100% { opacity: 1; }
-}
-@keyframes border-flow {
-  0% { background-position: 0% 0; }
-  100% { background-position: 200% 0; }
+.cm-link:hover, .cm-url:hover {
+  background-color: rgba(197, 83, 69, 0.08) !important;
+  color: #A33A2E !important;
 }
 
-/* 正文大字号化排版 */
-.prose-reading {
-  margin-bottom: 2em;
-  line-height: 1.85;
-  color: var(--text-secondary);
-  font-size: 1.4rem; /* 稍微提升字号，更显典雅阅读感 */
+.cm-link:hover::after, .cm-url:hover::after {
+  opacity: 0.8;
+  transform: scaleY(1.8);
 }
-
-/* 看板列过渡时间 */
-.stage-column {
-  background: transparent;
-  padding: 0.5rem;
-  min-height: 280px;
-  transition: border-color 2s cubic-bezier(0.16, 1, 0.3, 1), background-color 2s cubic-bezier(0.16, 1, 0.3, 1), transform 2s cubic-bezier(0.16, 1, 0.3, 1);
-  border: 1px solid transparent;
-  border-radius: 6px;
-}
-.stage-column:hover {
-  background: rgba(28, 28, 26, 0.03);
-  transform: scale(1.01);
-}
-.stage-column .column-header {
-  font-size: 11px; /* 禁止 9px/10px 等极小字号 */
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-muted);
-  padding-bottom: 0.5rem;
-  margin-bottom: 1rem;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.indicator-dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
-.dot-red { background-color: var(--bh-red); }
-.dot-blue { background-color: var(--bh-blue); }
-.dot-yellow { background-color: var(--bh-yellow); }
-.dot-green { background-color: var(--bh-green); }
 
 .quick-capture {
   position: fixed;
@@ -285,7 +156,6 @@ body {
 }
 .quick-capture input::placeholder { color: var(--text-muted); opacity: 0.6; }
 
-/* ⚡ 【Zen Mode 终极沉浸隔离】 */
 body.zen-active .sidebar { transform: translateX(calc(-100% - 32px)) !important; pointer-events: none !important; }
 body.zen-active .main-content { margin-left: 16px !important; }
 body.zen-active #editor-context-panel { transform: translateX(120%) !important; opacity: 0 !important; pointer-events: none !important; }
@@ -293,43 +163,14 @@ body.zen-active .quick-capture { transform: translate(-50%, 150%); }
 
 .scroll-hide::-webkit-scrollbar { display: none; }
 
-@keyframes popup-inner-entrance {
-  from {
-    opacity: 0;
-    transform: translateY(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.popup-inner {
-  animation: popup-inner-entrance 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Changelog 一体化物理动画 ⚡ 改为 1.2s 体验 */
-.changelog-node {
-  transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-.changelog-node:hover {
-  transform: translateY(-8px);
-}
-.changelog-node:hover .brutal-card {
-  border-color: var(--ui-hover);
-  box-shadow: var(--shadow-glass);
-  background: #FFFFFF;
-  transform: none !important;
-}
-
-/* Gantt 保持 2s 体验不变 */
-.gantt-item {
-  transition: transform 2.0s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
 @keyframes pane-slide {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .pane-active {
   animation: pane-slide 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.drag-handle {
+  touch-action: none;
 }

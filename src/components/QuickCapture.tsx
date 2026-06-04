@@ -19,9 +19,9 @@ export function QuickCapture({ isZenMode, value, onChange, onSubmit }: QuickCapt
   return (
     <div className={`quick-capture glass-panel ${isZenMode ? 'collapsed' : ''}`}>
       <span className="font-mono text-xs opacity-50 shrink-0 select-none mr-1">&gt;</span>
-      <input 
-        type="text" 
-        placeholder="Capture a fleeting thought..." 
+      <input
+        type="text"
+        placeholder="Capture a fleeting thought..."
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
