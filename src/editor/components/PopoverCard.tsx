@@ -1,7 +1,7 @@
 /* ================================================
    FILE: src/editor/components/PopoverCard.tsx
    ================================================ */
-import React, { useState, memo, useMemo } from 'react';
+import React, { useState, memo, useMemo, useEffect } from 'react';
 import { Pin, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, useDragControls } from 'motion/react';
 import type { PopoverCardProps } from '@/types';
@@ -28,8 +28,19 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
     const dragControls = useDragControls();
 
     const [size, setSize] = useState({ w: popup.width, h: popup.height });
+    const [isSmallScreen, setIsSmallScreen] = useState(false);
 
     const isActive = activePopupId === popup.id;
+
+    useEffect(() => {
+      const checkScreenSize = () => {
+        setIsSmallScreen(window.innerWidth <= 768);
+      };
+
+      checkScreenSize();
+      window.addEventListener('resize', checkScreenSize);
+      return () => window.removeEventListener('resize', checkScreenSize);
+    }, []);
 
     const hasBack = useMemo(
       () => popup.history && (popup.historyIndex ?? 0) > 0,
@@ -70,7 +81,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
 
     return (
       <motion.div
-        drag
+        drag={!isSmallScreen}
         dragControls={dragControls}
         dragListener={false}
         // 🌟 手感重塑：彻底抛弃滑移感和橡皮筋，采用绝对 1:1 干脆追踪映射，像真的一张实体卡片被按住一样
@@ -101,9 +112,13 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
           cursor: 'grabbing',
         }}
         style={{
-          position: 'absolute',
-          width: size.w,
-          height: size.h,
+          position: isSmallScreen ? 'fixed' : 'absolute',
+          top: isSmallScreen ? '50%' : 'auto',
+          left: isSmallScreen ? '50%' : 'auto',
+          transform: isSmallScreen ? 'translate(-50%, -50%)' : 'none',
+          width: isSmallScreen ? '90vw' : size.w,
+          height: isSmallScreen ? 'auto' : size.h,
+          maxHeight: isSmallScreen ? '80vh' : 'none',
           zIndex: isActive ? 200 : 100 + popup.depth,
         }}
         className={`glass-panel border border-neutral-300 shadow-[0_12px_40px_rgba(0,0,0,0.06)] flex flex-col overflow-hidden transition-colors ${
@@ -112,8 +127,8 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
       >
         <div className="w-full h-full flex flex-col popup-inner">
           <div
-            onPointerDown={(e) => dragControls.start(e)}
-            className="drag-handle flex items-center justify-between border-b border-black/5 bg-neutral-100/80 p-3 px-4 shrink-0 cursor-move"
+            onPointerDown={isSmallScreen ? undefined : (e) => dragControls.start(e)}
+            className={`drag-handle flex items-center justify-between border-b border-black/5 bg-neutral-100/80 p-3 px-4 shrink-0 ${isSmallScreen ? 'cursor-default' : 'cursor-move'}`}
           >
             <div className="flex items-center gap-2">
               <span className={`tag-badge ${popup.badgeClass}`}>{popup.badge}</span>
@@ -203,19 +218,21 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
           </div>
         </div>
 
-        <div
-          onPointerDown={handleResizeStart}
-          className="absolute bottom-1 right-1 cursor-se-resize p-1"
-        >
-          <svg
-            width="8"
-            height="8"
-            viewBox="0 0 8 8"
-            className="opacity-40 hover:opacity-100 text-neutral-600"
+        {!isSmallScreen && (
+          <div
+            onPointerDown={handleResizeStart}
+            className="absolute bottom-1 right-1 cursor-se-resize p-1"
           >
-            <path d="M6 0 L0 6 M8 2 L2 8" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
-        </div>
+            <svg
+              width="8"
+              height="8"
+              viewBox="0 0 8 8"
+              className="opacity-40 hover:opacity-100 text-neutral-600"
+            >
+              <path d="M6 0 L0 6 M8 2 L2 8" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+          </div>
+        )}
       </motion.div>
     );
   }

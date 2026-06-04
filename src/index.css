@@ -97,6 +97,12 @@ body {
   line-height: 1.85 !important;
   color: var(--text-secondary) !important;
 }
+
+@media (max-width: 768px) {
+  .cm-content {
+    font-size: 1rem !important;
+  }
+}
 .cm-line { padding-bottom: 1em !important; }
 
 /* 🌟 重构：双链学术级纯净悬浮动效 */

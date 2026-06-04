@@ -8,7 +8,7 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { QuickCapture } from '@/components/QuickCapture';
 import { useAppStore } from '@/store/useAppStore';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useMotionValue, useTransform, animate } from 'motion/react';
 import { Menu } from 'lucide-react';
 
 function AppContent() {
@@ -16,6 +16,7 @@ function AppContent() {
   const setActivePage = useAppStore((state) => state.setActivePage);
   const isSidebarHovered = useAppStore((state) => state.isSidebarHovered);
   const isZenMode = useAppStore((state) => state.isZenMode);
+  const isSidebarPinned = useAppStore((state) => state.isSidebarPinned);
   const setZenMode = useAppStore((state) => state.setZenMode);
   const isCommandPaletteOpen = useAppStore((state) => state.isCommandPaletteOpen);
   const setCommandPaletteOpen = useAppStore((state) => state.setCommandPaletteOpen);
@@ -26,29 +27,48 @@ function AppContent() {
   const setQuickCaptureText = useAppStore((state) => state.setQuickCaptureText);
   const setSidebarHovered = useAppStore((state) => state.setSidebarHovered);
 
-  const isSidebarActiveCollapsed = isZenMode || !isSidebarHovered;
+  const isSidebarActiveCollapsed = isZenMode || !isSidebarPinned && !isSidebarHovered;
+
+  const x = useMotionValue(0);
+  const backgroundOpacity = useTransform(x, [0, 80], [0, 0.1]);
+  const sidebarTranslateX = useTransform(x, [0, 80], ['translateX(0)', 'translateX(100%)']);
+
+  const handleDragEnd = (_, info) => {
+    if (info.offset.x > 80) {
+      animate(x, 80, { type: 'spring', stiffness: 300, damping: 30 });
+      setTimeout(() => {
+        setSidebarHovered(false);
+        animate(x, 0, { type: 'spring', stiffness: 300, damping: 30 });
+      }, 300);
+    } else {
+      animate(x, 0, { type: 'spring', stiffness: 300, damping: 30 });
+    }
+  };
 
   return (
     <ErrorBoundary>
-      {/* 桌面端边缘感应拉起区：仅在非触控屏的桌面端 (hidden md:block) 渲染，绝不干扰移动端体验 */}
-      {!isSidebarHovered && !isZenMode && (
-        <div
-          onMouseEnter={() => {
-            if (window.matchMedia('(pointer: coarse)').matches) return;
-            setSidebarHovered(true);
-          }}
-          className="fixed top-0 left-0 bottom-0 w-3 z-50 bg-transparent cursor-e-resize hidden md:block"
+      {/* 移动端侧边栏包装 */}
+      <motion.div
+        style={{ x: sidebarTranslateX }}
+        className="fixed inset-y-0 left-0 z-[110] pointer-events-none md:hidden"
+      >
+        <Sidebar
+          isCollapsed={isSidebarActiveCollapsed}
+          openPage={setActivePage}
+          openCommandPalette={() => setCommandPaletteOpen(true)}
+          setStatus={setStatus}
         />
-      )}
+      </motion.div>
 
-      <Sidebar
-        isCollapsed={isSidebarActiveCollapsed}
-        openPage={setActivePage}
-        openCommandPalette={() => setCommandPaletteOpen(true)}
-        setStatus={setStatus}
-        onMouseEnter={() => setSidebarHovered(true)}
-        onMouseLeave={() => setSidebarHovered(false)}
-      />
+      {/* 桌面端侧边栏 */}
+      <div className="hidden md:block">
+        <Sidebar
+          isCollapsed={isSidebarActiveCollapsed}
+          openPage={setActivePage}
+          openCommandPalette={() => setCommandPaletteOpen(true)}
+          setStatus={setStatus}
+        />
+      </div>
 
       {/* 移动端专属悬浮触发器：收起时在左上角提供精致的物理按键来拉起侧边栏 */}
       {isSidebarActiveCollapsed && (
@@ -60,11 +80,16 @@ function AppContent() {
         </button>
       )}
 
-      {/* 移动端遮罩层：侧边栏展开后，点击主页面空白处一键收回侧边栏 */}
-      {!isSidebarActiveCollapsed && (
-        <div
+      {/* 移动端遮罩层：侧边栏展开后，点击主页面空白处一键收回侧边栏，支持右滑关闭手势 */}
+      {!isSidebarActiveCollapsed && !isSidebarPinned && (
+        <motion.div
+          drag="x"
+          dragConstraints={{ left: 0, right: 80 }}
+          dragElastic={0}
+          onDragEnd={handleDragEnd}
+          style={{ opacity: backgroundOpacity }}
           onClick={() => setSidebarHovered(false)}
-          className="fixed inset-0 bg-black/10 backdrop-blur-[2px] z-[105] md:hidden animate-in fade-in duration-300"
+          className="fixed inset-0 bg-black/10 backdrop-blur-[2px] z-[105] md:hidden animate-in fade-in duration-300 cursor-grab active:cursor-grabbing"
         />
       )}
 

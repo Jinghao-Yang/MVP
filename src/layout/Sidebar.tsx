@@ -1,66 +1,84 @@
 /* ================================================
    FILE: src/layout/Sidebar.tsx
    ================================================ */
-import { memo, useEffect, useRef } from 'react';
-import { ChevronRight, Search, Plus, Settings } from 'lucide-react';
+import { memo, useState, useRef, useEffect } from 'react';
+import { ChevronRight, Search, Plus, Settings, Pin, PinOff } from 'lucide-react';
 import type { SidebarProps } from '@/types';
+import { useAppStore } from '@/store/useAppStore';
 
 function SidebarComponent({
   isCollapsed,
   openPage,
   openCommandPalette,
   setStatus,
-  onMouseEnter,
-  onMouseLeave,
-}: Omit<SidebarProps, 'onToggle' | 'activePage'>) {
-  const sidebarLeaveTimer = useRef<NodeJS.Timeout | null>(null);
-  const isZenActive = document.body.classList.contains('zen-active');
+}: Omit<SidebarProps, 'onToggle' | 'activePage' | 'onMouseEnter' | 'onMouseLeave'>) {
+  const isZenMode = useAppStore((state) => state.isZenMode);
+  const isSidebarPinned = useAppStore((state) => state.isSidebarPinned);
+  const toggleSidebarPin = useAppStore((state) => state.toggleSidebarPin);
+  const [localHover, setLocalHover] = useState(false);
+  const closeTimer = useRef<NodeJS.Timeout | null>(null);
+  const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
-  // 组件卸载时安全销毁全局计时器
+  // 是否真正展开（固定模式下忽略 isCollapsed 和 hover）
+  const isExpanded = isSidebarPinned || (!isCollapsed && localHover);
+
+  // 清除关闭计时器
+  const clearCloseTimer = () => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+
+  // 鼠标进入侧边栏或感应区 -> 立即展开（如果未固定且未 Zen）
+  const handleExpand = () => {
+    if (isSidebarPinned || isZenMode || isTouch) return;
+    clearCloseTimer();
+    setLocalHover(true);
+  };
+
+  // 鼠标离开侧边栏 -> 延迟关闭
+  const handleCollapse = () => {
+    if (isSidebarPinned || isZenMode || isTouch) return;
+    clearCloseTimer();
+    closeTimer.current = setTimeout(() => {
+      setLocalHover(false);
+    }, 300);
+  };
+
+  // 组件卸载时清除计时器
   useEffect(() => {
-    return () => {
-      if (sidebarLeaveTimer.current) clearTimeout(sidebarLeaveTimer.current);
-    };
+    return () => clearCloseTimer();
   }, []);
-
-  // 🌟 核心拦截：检测当前设备是否为粗指针设备（触摸屏）。如果是触摸屏设备，则完全封锁并无视 hover 延迟事件，彻底防止因移动端模拟 hover 造成的反复闪烁折叠。
-  const handleMouseEnter = () => {
-    if (window.matchMedia('(pointer: coarse)').matches) return;
-    onMouseEnter();
-  };
-
-  const handleMouseLeave = () => {
-    if (window.matchMedia('(pointer: coarse)').matches) return;
-    sidebarLeaveTimer.current = setTimeout(() => {
-      onMouseLeave();
-    }, 400);
-  };
 
   return (
     <>
-      {!isZenActive && (
+      {/* 边缘感应区（触摸屏不渲染） */}
+      {!isTouch && !isSidebarPinned && !isZenMode && (
         <div
-          onMouseEnter={handleMouseEnter}
-          className="fixed top-0 left-0 bottom-0 w-3 z-[99] bg-transparent cursor-e-resize"
-        />
+          onMouseEnter={handleExpand}
+          className="fixed top-0 left-0 bottom-0 w-6 z-50 group transition-all duration-200"
+        >
+          {/* 视觉反馈：默认显示极细的渐变高亮条，鼠标靠近时扩展到全宽 */}
+          <div className="absolute top-0 left-0 w-0.5 h-full bg-gradient-to-r from-white/40 to-transparent group-hover:w-6 group-hover:from-white/50 transition-all duration-300 ease-out" />
+        </div>
       )}
 
       <aside
-        onMouseEnter={isZenActive ? undefined : handleMouseEnter}
-        onMouseLeave={isZenActive ? undefined : handleMouseLeave}
+        onMouseEnter={handleExpand}
+        onMouseLeave={handleCollapse}
         className="sidebar glass-panel"
         id="sidebar"
         style={{
-          width: isCollapsed || isZenActive ? '0px' : 'var(--sidebar-width)',
-          transform: isCollapsed || isZenActive ? 'translateX(-100%)' : 'translateX(0)',
-          opacity: isCollapsed || isZenActive ? 0 : 1,
-          pointerEvents: isCollapsed || isZenActive ? 'none' : 'auto',
+          width: isExpanded ? 'var(--sidebar-width)' : '0px',
+          transform: isExpanded ? 'translateX(0)' : 'translateX(-100%)',
+          opacity: isExpanded ? 1 : 0,
+          pointerEvents: isExpanded ? 'auto' : 'none',
           transition:
-            'width 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease',
+            'width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease',
           position: 'fixed',
           zIndex: 110,
-          boxShadow:
-            isCollapsed || isZenActive ? 'none' : '24px 0px 80px -12px rgba(28, 28, 26, 0.08)',
+          boxShadow: isExpanded ? '24px 0px 80px -12px rgba(28, 28, 26, 0.08)' : 'none',
         }}
       >
         <div
@@ -164,6 +182,24 @@ function SidebarComponent({
               </div>
             </div>
           </nav>
+
+          {/* 底部固定按钮 */}
+          <div className="p-4 border-t border-neutral-200/50 mt-auto">
+            <button
+              onClick={toggleSidebarPin}
+              className="w-full flex items-center justify-center gap-2 py-2 text-xs font-mono hover:bg-black/5 transition-colors cursor-pointer border-none bg-transparent"
+            >
+              {isSidebarPinned ? (
+                <>
+                  <PinOff className="w-3.5 h-3.5" /> Unpin Sidebar
+                </>
+              ) : (
+                <>
+                  <Pin className="w-3.5 h-3.5" /> Pin Sidebar
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </aside>
     </>

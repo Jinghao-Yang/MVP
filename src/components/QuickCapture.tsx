@@ -9,7 +9,7 @@ interface QuickCaptureProps {
 
 export function QuickCapture({ isZenMode, value, onChange, onSubmit }: QuickCaptureProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    if (e.key === 'Enter') {
       if (value.trim()) {
         onSubmit();
       }
@@ -26,7 +26,7 @@ export function QuickCapture({ isZenMode, value, onChange, onSubmit }: QuickCapt
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
       />
-      <span className="meta opacity-40">⌘↵</span>
+      <span className="meta opacity-40">↵</span>
     </div>
   );
 }

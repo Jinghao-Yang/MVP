@@ -34,9 +34,6 @@
       "@/store/*": [
         "./src/store/*"
       ],
-      "@/hooks/*": [
-        "./src/hooks/*"
-      ],
       "@/types": [
         "./src/@types/index"
       ],
@@ -45,9 +42,6 @@
       ],
       "@/data/*": [
         "./src/data/*"
-      ],
-      "@/context/*": [
-        "./src/context/*"
       ]
     },
     "allowImportingTsExtensions": true,

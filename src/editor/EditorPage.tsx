@@ -2,7 +2,7 @@
    FILE: src/editor/EditorPage.tsx
    ================================================ */
 import { memo, useMemo } from 'react';
-import type { EditorPageProps } from '@/types';
+import type { EditorPageProps, PopupData } from '@/types';
 import { useAppStore } from '@/store/useAppStore';
 import { PopoverCard } from './components/PopoverCard';
 import { EditorContent } from './EditorContent';
@@ -22,11 +22,11 @@ export function EditorPageContent({ isZenMode, onToggleZen, openPage }: EditorPa
   const setIsUserDragging = useAppStore((state) => state.setIsUserDragging);
 
   const visiblePopups = useMemo(() => {
-    return popups.filter((p) => !p.isMinimized);
+    return popups.filter((p: PopupData) => !p.isMinimized);
   }, [popups]);
 
   const minimizedPopups = useMemo(() => {
-    return popups.filter((p) => p.isMinimized);
+    return popups.filter((p: PopupData) => p.isMinimized);
   }, [popups]);
 
   return (
@@ -37,7 +37,7 @@ export function EditorPageContent({ isZenMode, onToggleZen, openPage }: EditorPa
       {/* 右侧常驻批注边栏 */}
       <EditorSidebar isZenMode={isZenMode} />
 
-      {visiblePopups.map((popup) => (
+      {visiblePopups.map((popup: PopupData) => (
         <PopoverCard
           key={popup.id}
           popup={popup}
@@ -60,7 +60,7 @@ export function EditorPageContent({ isZenMode, onToggleZen, openPage }: EditorPa
           <span className="font-mono text-xs uppercase text-neutral-400 mr-1 select-none">
             Minimized:
           </span>
-          {minimizedPopups.map((p) => (
+          {minimizedPopups.map((p: PopupData) => (
             <button
               key={p.id}
               onClick={() => toggleMinimize(p.id)}
