@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Axiom · Research Operating Environment (Floating Edition)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* —————————————————— 字体与系统级核心变量 —————————————————— */
+        @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        :root {
+            --bg-canvas: #FAFAF8;
+            --text-main: #1C1C1A;
+            --text-secondary: #4A4A46;
+            --text-muted: #9E9E98;
+
+            /* 包豪斯低饱和色彩系统 (Bauhaus Muted Palette) */
+            --bh-red: #C55345;
+            --bh-blue: #5B7B9A;
+            --bh-yellow: #D1A34D;
+            --bh-green: #708A74;
+
+            /* 隐藏式 UI 的交互过渡线 */
+            --ui-hidden: transparent;
+            --ui-hover: rgba(28, 28, 26, 0.12);
+
+            /* 高精 SaaS 悬浮阴影系统 */
+            --shadow-glass: 0 12px 48px -12px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0,0,0,0.02);
+            --shadow-card: 0 8px 24px -8px rgba(0,0,0,0.04);
+            
+            /* 物理弹簧动效曲线 (Spring Physics) */
+            --spring-bounce: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            --spring-smooth: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+
+            --sidebar-width: 240px;
+            --sidebar-collapsed: 64px;
+        }
+
+        body {
+            background-color: var(--bg-canvas);
+            color: var(--text-main);
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 13.5px;
+            
+            /* 【特性 1：背景质感化】极其微妙的网格暗纹 + 动态流体极光 */
+            background-size: 40px 40px, 40px 40px, 100% 100%, 100% 100%, 100% 100%;
+            background-image:
+                linear-gradient(to right, rgba(28, 28, 26, 0.025) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(28, 28, 26, 0.025) 1px, transparent 1px),
+                radial-gradient(ellipse at 20% 50%, rgba(197, 83, 69, 0.035) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(91, 123, 154, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(112, 138, 116, 0.035) 0%, transparent 50%);
+            background-attachment: fixed;
+            animation: ambient-breath 15s ease-in-out infinite alternate;
+        }
+
+        @keyframes ambient-breath {
+            0% { background-position: 0 0, 0 0, 0% 50%, 100% 0%, 50% 100%; }
+            100% { background-position: 0 0, 0 0, 15% 40%, 85% 15%, 45% 85%; }
+        }
+
+        .font-sys { font-family: 'Space Grotesk', sans-serif; }
+        .font-human { font-family: 'Newsreader', serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        ::-webkit-scrollbar { display: none; }
+
+        /* 【特性 4：果冻与弹簧动效】 */
+        .spring-bounce { transition: var(--spring-bounce); }
+        .spring-smooth { transition: var(--spring-smooth); }
+        .spring-click { transition: var(--spring-bounce); cursor: pointer; }
+        .spring-click:hover { transform: translateY(-2px) scale(1.01); }
+        .spring-click:active { transform: translateY(1px) scale(0.96); transition: all 0.1s ease; }
+
+        /* 【特性 2 & 3：全局悬浮与玻璃质感】保留锐角直边 */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: var(--shadow-glass);
+            border-radius: 0px; /* 坚守锐角 */
+        }
+        
+        .glass-panel-deep {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(36px); /* 层级越高，毛玻璃模糊越重 */
+            -webkit-backdrop-filter: blur(36px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-top: 1px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.08);
+            border-radius: 0px;
+        }
+
+        /* 【特性 6：隐藏式 UI】边框平时透明，Hover浮现 */
+        .hover-ui {
+            border: 1px solid var(--ui-hidden);
+            background: transparent;
+            transition: var(--spring-smooth);
+        }
+        .hover-ui:hover {
+            border-color: var(--ui-hover);
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .brutal-card {
+            position: relative;
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--ui-hidden);
+            box-shadow: var(--shadow-card);
+            transition: var(--spring-bounce);
+            cursor: pointer;
+            border-radius: 0px;
+        }
+        .brutal-card:hover {
+            border-color: var(--ui-hover);
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: var(--shadow-glass);
+            background: rgba(255, 255, 255, 0.9);
+        }
+        .brutal-card:active {
+            transform: translateY(0px) scale(0.98);
+            transition: all 0.1s ease;
+        }
+
+        /* 【特性 5：包豪斯低饱和配色标签】 */
+        .tag-badge {
+            display: inline-block;
+            padding: 0.15rem 0.55rem;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border-radius: 0px !important;
+            border: 1px solid transparent;
+        }
+        .tag-badge-yellow { background: rgba(209, 163, 77, 0.12); color: var(--bh-yellow); }
+        .tag-badge-red { background: rgba(197, 83, 69, 0.1); color: var(--bh-red); }
+        .tag-badge-blue { background: rgba(91, 123, 154, 0.12); color: var(--bh-blue); }
+        .tag-badge-green { background: rgba(112, 138, 116, 0.15); color: var(--bh-green); }
+
+        .card-theorem { border-left: 3px solid var(--bh-blue) !important; }
+
+        /* —————— 全局悬浮布局 —————— */
+        .sidebar {
+            position: fixed;
+            top: 16px; left: 16px; bottom: 16px;
+            width: var(--sidebar-width);
+            z-index: 30;
+            transition: width var(--spring-bounce), transform var(--spring-bounce);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .sidebar.collapsed { width: var(--sidebar-collapsed); }
+        .sidebar.collapsed .sidebar-label,
+        .sidebar.collapsed .nav-text,
+        .sidebar.collapsed .logo-full { opacity: 0; pointer-events: none; transition: opacity 0.15s ease; }
+        .sidebar.collapsed .logo-single { opacity: 1; pointer-events: auto; }
+        .sidebar.collapsed .nav-item { justify-content: center; }
+        .sidebar.collapsed .nav-item svg { margin: 0; }
+        .sidebar.collapsed .nav-item span:not(.icon-only) { display: none; }
+        
+        .main-content {
+            margin-left: calc(var(--sidebar-width) + 32px);
+            margin-top: 16px;
+            margin-bottom: 16px;
+            margin-right: 16px;
+            height: calc(100vh - 32px);
+            transition: margin-left var(--spring-bounce), width var(--spring-bounce);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .sidebar.collapsed~.main-content { margin-left: calc(var(--sidebar-collapsed) + 32px); }
+
+        /* 悬浮 Context Panel (图层深度) */
+        #editor-context-panel {
+            position: absolute;
+            right: 16px;
+            top: 80px; /* 避开头部 */
+            bottom: 16px;
+            width: 300px;
+            z-index: 40;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: transform var(--spring-bounce), opacity var(--spring-smooth);
+        }
+
+        /* 隐藏UI：动作图标只有在父级 Hover 时才浮现 */
+        .action-icon {
+            opacity: 0;
+            transform: scale(0.8) translateX(-5px);
+            transition: var(--spring-bounce);
+        }
+        .group:hover .action-icon {
+            opacity: 1;
+            transform: scale(1) translateX(0);
+        }
+
+        /* 磨砂玻璃统计卡片 (无边框版) */
+        .stat-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.2rem 0.7rem;
+            font-size: 11px;
+            font-weight: 500;
+            background: transparent;
+            color: var(--text-muted);
+            transition: var(--spring-smooth);
+            cursor: pointer;
+        }
+        .stat-pill:hover {
+            background: rgba(255,255,255,0.6);
+            color: var(--text-main);
+        }
+        .stat-pill .stat-number { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--text-main); }
+
+        /* 双链悬浮水滴态 */
+        .wiki-link {
+            color: var(--bh-red);
+            border-bottom: 1px dotted var(--bh-red);
+            cursor: pointer;
+            padding: 0 4px;
+            transition: var(--spring-bounce);
+            position: relative;
+            background: transparent;
+        }
+        .wiki-link:hover {
+            background: rgba(197, 83, 69, 0.08);
+            border-bottom: 1px solid var(--bh-red);
+            transform: translateY(-1px);
+        }
+
+        /* 阅读区排版 */
+        .prose-reading p {
+            margin-bottom: 1.8em;
+            line-height: 1.75;
+            color: var(--text-secondary);
+            font-size: 1.18rem;
+        }
+
+        /* 演化看板（流体无边框悬浮） */
+        .stage-column {
+            background: transparent;
+            padding: 0.5rem;
+            min-height: 280px;
+            transition: var(--spring-smooth);
+            border: 1px solid transparent;
+        }
+        .stage-column:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(0,0,0,0.03);
+        }
+        .stage-column .column-header {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .indicator-dot { width: 5px; height: 5px; border-radius: 50%; }
+        .dot-red { background-color: var(--bh-red); }
+        .dot-blue { background-color: var(--bh-blue); }
+        .dot-yellow { background-color: var(--bh-yellow); }
+        .dot-green { background-color: var(--bh-green); }
+
+        /* 悬浮 Quick Capture */
+        .quick-capture {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            max-width: 90vw;
+            height: 54px;
+            display: flex;
+            align-items: center;
+            padding: 0 2rem;
+            z-index: 60;
+            gap: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--text-muted);
+            transition: var(--spring-bounce);
+        }
+        .quick-capture.collapsed { transform: translate(-50%, 150%); opacity: 0; }
+        .quick-capture input {
+            flex: 1; background: transparent; border: none; outline: none;
+            font-family: 'Space Grotesk', sans-serif; font-size: 14px; color: var(--text-main);
+        }
+        .quick-capture input::placeholder { color: var(--text-muted); opacity: 0.6; }
+
+        body.zen-active .sidebar { transform: translateX(calc(-100% - 32px)); }
+        body.zen-active .main-content { margin-left: 16px !important; }
+        body.zen-active #editor-context-panel { transform: translateX(120%); opacity: 0; pointer-events: none; }
+        body.zen-active .quick-capture { transform: translate(-50%, 150%); }
+
+        /* 隐藏滚动条但保留滚动功能 */
+        .scroll-hide::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================================ -->
+    <!-- 左侧导航 (全局玻璃悬浮)                                        -->
+    <!-- ============================================================ -->
+    <aside class="sidebar glass-panel" id="sidebar">
+        <!-- Logo -->
+        <div class="h-20 px-6 flex items-center justify-between shrink-0 relative group">
+            <span class="logo-full font-sys text-base font-bold tracking-widest text-text-main">AXIOM</span>
+            <span class="logo-single font-sys text-base font-bold tracking-widest text-text-main absolute">A</span>
+            <span class="logo-full font-mono text-[9px] text-[var(--text-muted)] opacity-60 transition-opacity">v0.8</span>
+        </div>
+
+        <!-- 无边框留白导航 -->
+        <nav class="flex-1 overflow-y-auto px-4 py-4 space-y-8 scroll-hide text-xs text-[var(--text-secondary)] font-medium">
+            
+            <div class="space-y-1">
+                <button onclick="openCommandPalette()" class="spring-click hover-ui w-full flex items-center gap-3 px-3 py-2 text-left group">
+                    <i data-lucide="search" class="w-4 h-4 opacity-50 group-hover:opacity-100 group-hover:text-black transition-colors"></i>
+                    <span class="nav-text flex-1">Search & Run</span>
+                    <kbd class="font-mono text-[9px] opacity-0 group-hover:opacity-50 transition-opacity">⌘K</kbd>
+                </button>
+                <button onclick="setStatus('Creating new...')" class="spring-click hover-ui w-full flex items-center gap-3 px-3 py-2 text-left group">
+                    <i data-lucide="plus" class="w-4 h-4 opacity-50 group-hover:opacity-100 group-hover:text-black transition-colors"></i>
+                    <span class="nav-text flex-1">New Node</span>
+                </button>
+            </div>
+
+            <div>
+                <div class="sidebar-label text-[9px] uppercase tracking-widest text-[var(--text-muted)] opacity-50 mb-3 px-3">Focus</div>
+                <div class="space-y-1">
+                    <div class="spring-click hover-ui px-3 py-2 flex items-center gap-3 text-[var(--text-main)] font-semibold group" onclick="openPage('editor')">
+                        <span class="indicator-dot dot-red"></span>
+                        <span class="nav-text flex-1">Today</span>
+                        <i data-lucide="chevron-right" class="w-3 h-3 action-icon"></i>
+                    </div>
+                    <div class="spring-click hover-ui px-3 py-2 flex items-center gap-3 group" onclick="setStatus('Opening Recent…')">
+                        <span class="indicator-dot dot-blue opacity-30"></span>
+                        <span class="nav-text flex-1">Recent Flow</span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="sidebar-label text-[9px] uppercase tracking-widest text-[var(--text-muted)] opacity-50 mb-3 px-3">Spaces</div>
+                <div class="space-y-1">
+                    <div class="spring-click hover-ui px-3 py-2 flex items-center gap-3 text-[var(--text-main)] font-semibold group" onclick="openPage('project')">
+                        <span class="indicator-dot dot-yellow"></span>
+                        <span class="nav-text flex-1">Topology Math</span>
+                        <i data-lucide="chevron-right" class="w-3 h-3 action-icon"></i>
+                    </div>
+                    <div class="spring-click hover-ui px-3 py-2 flex items-center gap-3 group" onclick="setStatus('Opening Personal Space…')">
+                        <span class="indicator-dot dot-green opacity-30"></span>
+                        <span class="nav-text flex-1">System Design</span>
+                    </div>
+                </div>
+            </div>
+
+        </nav>
+
+        <!-- 悬停才会出现的折叠按钮 -->
+        <div class="absolute bottom-4 right-4 opacity-0 hover:opacity-100 transition-opacity duration-300">
+            <button class="w-8 h-8 flex items-center justify-center hover-ui bg-white/50 backdrop-blur" onclick="toggleSidebar()" title="Toggle sidebar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+        </div>
+    </aside>
+
+    <!-- ============================================================ -->
+    <!-- 主内容区                                                      -->
+    <!-- ============================================================ -->
+    <div class="main-content" id="main-content">
+
+        <!-- ============================================================ -->
+        <!-- 页面 1: PROJECT                                               -->
+        <!-- ============================================================ -->
+        <div id="page-project" class="page-panel flex-1 flex flex-col h-full overflow-hidden">
+            
+            <!-- 无边框通透头部 -->
+            <header class="h-20 flex items-center justify-between px-8 shrink-0 z-10">
+                <div class="flex items-center gap-4">
+                    <div class="font-sys text-[11px] uppercase tracking-[0.15em] text-[var(--text-muted)] flex items-center gap-2">
+                        <span>Space</span>
+                        <span class="font-serif italic text-sm opacity-50">/</span>
+                        <span class="text-[var(--text-main)] font-semibold">Topology Math</span>
+                    </div>
+                </div>
+                <!-- 隐藏式UI：悬停出现背景的 Tab 切换 -->
+                <div class="flex items-center gap-1 p-1 bg-white/30 backdrop-blur-md">
+                    <button id="btn-tab-timeline" onclick="toggleProjectTab('timeline')" class="spring-click px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] hover:text-black">Gantt</button>
+                    <button id="btn-tab-kanban" onclick="toggleProjectTab('kanban')" class="spring-click px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] hover:text-black">Pipeline</button>
+                    <button id="btn-tab-gallery" onclick="toggleProjectTab('gallery')" class="spring-click px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] hover:text-black">Gallery</button>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-8 scroll-hide">
+                <div class="max-w-6xl mx-auto space-y-12">
+
+                    <!-- 视图: Kanban (流体无边框) -->
+                    <div id="project-tab-kanban" class="page-panel space-y-8 hidden">
+                        <div>
+                            <h2 class="font-human text-4xl font-normal tracking-tight">Zettelkasten Pipeline</h2>
+                            <p class="text-[var(--text-muted)] font-sys text-sm mt-2">Visually manage notes through stages of conceptual confidence.</p>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            <div class="stage-column">
+                                <div class="column-header"><span class="w-1.5 h-1.5 rounded-full dot-yellow"></span> 1. Fleeting</div>
+                                <div class="brutal-card p-4 mb-3" draggable="true">Heine–Borel origins</div>
+                                <div class="brutal-card p-4 mb-3" draggable="true">Non-Hausdorff products</div>
+                            </div>
+                            <div class="stage-column">
+                                <div class="column-header"><span class="w-1.5 h-1.5 rounded-full dot-blue"></span> 2. Seedling</div>
+                                <div class="brutal-card p-4 mb-3" draggable="true">Compactness ↔ sequential</div>
+                            </div>
+                            <div class="stage-column">
+                                <div class="column-header"><span class="w-1.5 h-1.5 rounded-full dot-red"></span> 3. Evergreen</div>
+                                <div class="brutal-card p-4 mb-3" draggable="true">Lemma 2.4: finite subcover</div>
+                            </div>
+                            <div class="stage-column">
+                                <div class="column-header"><span class="w-1.5 h-1.5 rounded-full dot-green"></span> 4. Synthesis</div>
+                                <div class="brutal-card p-4 mb-3 opacity-50" draggable="true">Drop here to output</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 视图: Gallery -->
+                    <div id="project-tab-gallery" class="page-panel space-y-8 hidden">
+                        <div>
+                            <h2 class="font-human text-4xl font-normal tracking-tight">Knowledge Base</h2>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 items-stretch">
+                            <!-- 知识卡片 -->
+                            <div onclick="openPage('editor')" class="brutal-card card-theorem p-6 flex flex-col justify-between group">
+                                <div class="flex items-center justify-between pb-3 mb-3">
+                                    <span class="font-mono text-[9px] uppercase tracking-wider text-[var(--bh-blue)] font-bold">Zettelkasten</span>
+                                    <span class="tag-badge tag-badge-blue">Active</span>
+                                </div>
+                                <div class="py-2">
+                                    <h3 class="font-reading text-xl font-bold leading-snug group-hover:text-[var(--bh-blue)] transition-colors mb-2">Compactness in Spaces</h3>
+                                    <p class="font-reading text-xs text-neutral-500 leading-relaxed line-clamp-3">
+                                        A space is compact if every open cover has a finite subcover...
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <!-- 宽版金句 -->
+                            <div class="brutal-card col-span-1 md:col-span-2 p-6 flex flex-col justify-between relative overflow-hidden">
+                                <!-- 包豪斯色彩微点缀作为背景角 -->
+                                <div class="absolute -top-10 -right-10 w-32 h-32 bg-[var(--bh-yellow)] opacity-10 rounded-full blur-2xl"></div>
+                                <div class="flex items-center justify-between pb-3">
+                                    <span class="font-mono text-[9px] uppercase tracking-wider text-[var(--bh-yellow)] font-bold">Thought</span>
+                                </div>
+                                <p class="font-human text-2xl text-neutral-800 italic leading-relaxed my-4 relative z-10">
+                                    "Productivity is not about getting more things done. It is about having a quiet room to think."
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 视图: Timeline -->
+                    <div id="project-tab-timeline" class="page-panel space-y-8 hidden">
+                        <div><h2 class="font-human text-4xl font-normal tracking-tight">Timeline</h2></div>
+                        <div class="text-neutral-400 font-mono text-sm">(Gantt visualization rendering...)</div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- 页面 2: EDITOR (沉浸式阅读与图层深度)                           -->
+        <!-- ============================================================ -->
+        <div id="page-editor" class="page-panel flex-1 flex h-full overflow-hidden hidden relative">
+
+            <main class="flex-1 flex flex-col h-full overflow-y-auto scroll-hide">
+                <header class="h-20 flex items-center justify-between px-12 z-10 shrink-0 sticky top-0 bg-gradient-to-b from-[var(--bg-canvas)] to-transparent">
+                    <div class="font-sys text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)] flex items-center gap-3">
+                        <span class="hover:text-[var(--text-main)] cursor-pointer transition-colors" onclick="openPage('project')">Topology Math</span>
+                        <span class="font-serif italic text-sm opacity-50">/</span>
+                        <span class="text-[var(--text-main)] font-semibold font-sys">Focus Mode</span>
+                    </div>
+                    <button onclick="toggleZenMode()" class="hover-ui px-3 py-1.5 text-[10px] font-bold text-black flex items-center gap-1.5">
+                        <i data-lucide="eye" class="w-3 h-3"></i>
+                        <span id="zen-btn-text">Zen Toggle</span>
+                    </button>
+                </header>
+
+                <div class="px-12 pt-16 pb-64 flex justify-start lg:justify-center">
+                    <!-- 调整宽度与右侧 Padding 防止被玻璃面板完全遮挡，但也允许部分穿透 -->
+                    <div class="w-full max-w-[640px] pr-[10%] lg:pr-0">
+                        <div class="mb-12 relative group">
+                            <span class="font-sys text-[10px] uppercase tracking-widest text-[var(--bh-red)] block mb-4">Document // 01</span>
+                            <h1 class="font-human text-6xl tracking-tight text-[var(--text-main)] leading-[1.05] outline-none" contenteditable="true">
+                                Compactness in topological spaces
+                            </h1>
+                        </div>
+
+                        <div class="prose-reading font-human outline-none" contenteditable="true">
+                            <p>
+                                This space maps the foundational structures of topological spaces. It bridges the intuitive notion of <em>closeness</em> without relying on strict metrics. The essence of compactness captures the idea that a space is, in some sense, "not too large" or "manageable", even if it contains infinitely many points.
+                            </p>
+                            <p>
+                                A topological space is a set endowed with a structure, called a <em>topology</em>, which allows defining continuous deformation of subspaces. Generalizing the 
+                                <span class="wiki-link" data-wiki-id="Heine–Borel">[[Heine–Borel]]</span> theorem requires us to move beyond Euclidean constraints.
+                            </p>
+                            <p>
+                                This brings us to 
+                                <span class="wiki-link" data-wiki-id="Tychonoff's Theorem">[[Tychonoff's Theorem]]</span>, which extends compactness to arbitrary products — a deep result relying on the Axiom of Choice.
+                            </p>
+                            <p>
+                                <em>Scroll down to see the text flow elegantly beneath the Z-Axis frosted glass context panel...</em><br/><br/><br/><br/><br/><br/>
+                                More thoughts...<br/><br/><br/><br/><br/><br/>
+                                Even more depth...
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- ============================================================ -->
+            <!-- 右侧 Context Panel (图层深度，重度毛玻璃)                       -->
+            <!-- ============================================================ -->
+            <aside id="editor-context-panel" class="glass-panel-deep">
+                <div class="h-16 px-6 flex items-center justify-between shrink-0">
+                    <span class="font-sys text-[10px] uppercase tracking-[0.15em] text-[var(--text-muted)]">Context Panel</span>
+                </div>
+
+                <div class="flex-1 px-6 py-4 overflow-y-auto space-y-10 scroll-hide relative z-10">
+
+                    <!-- Structure -->
+                    <div>
+                        <div class="font-sys text-[10px] uppercase tracking-[0.15em] text-[var(--text-muted)] mb-3">Structure</div>
+                        <div class="font-mono text-[11px] space-y-2 leading-relaxed">
+                            <div class="flex items-center gap-2 text-[var(--text-muted)] hover:text-black cursor-pointer group">
+                                <span class="group-hover:text-[var(--bh-red)] transition-colors">⊤</span> General Topology
+                            </div>
+                            <div class="flex items-center gap-2 text-black font-semibold ml-4">
+                                <span class="text-[var(--bh-red)] font-bold">·</span> Compact Space
+                            </div>
+                            <div class="flex items-center gap-2 text-[var(--text-muted)] ml-8 hover:text-black cursor-pointer group">
+                                <span class="group-hover:text-[var(--bh-blue)] transition-colors">⊢</span> Heine–Borel
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Local Graph (包豪斯配色节点) -->
+                    <div>
+                        <div class="font-sys text-[10px] uppercase tracking-[0.15em] text-[var(--text-muted)] mb-3">Local Graph</div>
+                        <div class="h-32 bg-white/20 border border-white/40 relative overflow-hidden group">
+                            <!-- 连线也变得非常轻 -->
+                            <svg class="absolute inset-0 w-full h-full opacity-40" stroke="currentColor" stroke-width="1">
+                                <line x1="150" y1="60" x2="80" y2="30" />
+                                <line x1="150" y1="60" x2="220" y2="30" />
+                            </svg>
+                            <!-- 中心节点 -->
+                            <div class="absolute top-[50%] left-[50%] transform -translate-x-1/2 -translate-y-1/2 cursor-pointer spring-click" onclick="setStatus('Focus: Compact Space')">
+                                <div class="w-4 h-4 bg-[var(--bh-red)] border border-white shadow-sm"></div>
+                            </div>
+                            <!-- 邻居节点 -->
+                            <div class="absolute top-[15%] left-[20%] transform -translate-x-1/2 -translate-y-1/2 cursor-pointer spring-click">
+                                <div class="w-3 h-3 bg-[var(--bh-blue)] border border-white opacity-60 hover:opacity-100"></div>
+                            </div>
+                            <div class="absolute top-[15%] right-[20%] transform -translate-x-1/2 -translate-y-1/2 cursor-pointer spring-click">
+                                <div class="w-3 h-3 bg-[var(--bh-yellow)] border border-white opacity-60 hover:opacity-100"></div>
+                            </div>
+                            
+                            <div class="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <i data-lucide="maximize-2" class="w-3 h-3 text-[var(--text-muted)]"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tools (隐藏式交互) -->
+                    <div>
+                        <ul class="space-y-1 font-sys text-xs text-[var(--text-secondary)]">
+                            <li class="spring-click flex justify-between items-center p-2 hover-ui group" onclick="setStatus('Tracing origin…')">
+                                <span class="flex items-center gap-2"><i data-lucide="git-merge" class="w-3 h-3 opacity-50"></i> Trace Origin</span>
+                                <i data-lucide="arrow-right" class="w-3 h-3 action-icon text-[var(--bh-red)]"></i>
+                            </li>
+                            <li class="spring-click flex justify-between items-center p-2 hover-ui group" onclick="setStatus('Finding counterexamples…')">
+                                <span class="flex items-center gap-2"><i data-lucide="zap" class="w-3 h-3 opacity-50"></i> Find Paradox</span>
+                                <i data-lucide="arrow-right" class="w-3 h-3 action-icon text-[var(--bh-blue)]"></i>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- 纯装饰性的底部光晕透出 -->
+                <div class="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white/40 to-transparent pointer-events-none"></div>
+            </aside>
+        </div>
+
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 浮动 Quick Capture                                            -->
+    <!-- ============================================================ -->
+    <div class="quick-capture glass-panel" id="quick-capture">
+        <i data-lucide="zap" class="w-4 h-4 text-[var(--bh-yellow)]"></i>
+        <input type="text" placeholder="Capture a fleeting thought..." id="quick-input" />
+        <span class="meta opacity-40">⌘↵</span>
+    </div>
+
+    <!-- 底部状态 Toast -->
+    <div id="status-toast" class="fixed bottom-24 right-6 bg-white text-black font-mono text-[10px] px-4 py-2 border border-neutral-200 shadow-xl transition-all duration-300 opacity-0 translate-y-4 pointer-events-none z-50 uppercase tracking-widest">
+        System active.
+    </div>
+
+    <!-- ⌘K 命令面板 -->
+    <div class="command-overlay fixed inset-0 z-[99] bg-black/5 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300" id="command-overlay" onclick="closeCommandPalette()"></div>
+    <div class="command-palette fixed top-[20%] left-1/2 -translate-x-1/2 glass-panel-deep w-[600px] max-w-[90vw] p-2 z-[100] opacity-0 pointer-events-none transition-all duration-300 scale-95" id="command-palette">
+        <input type="text" placeholder="Command..." class="w-full bg-transparent border-b border-white/30 text-lg p-4 outline-none font-sys text-black placeholder-black/30" id="command-input">
+        <div class="py-2">
+            <div class="flex items-center gap-3 p-3 hover:bg-white/40 cursor-pointer transition-colors" onclick="openPage('editor'); closeCommandPalette()">
+                <i data-lucide="pen-tool" class="w-4 h-4 text-[var(--bh-red)]"></i>
+                <span class="text-sm font-medium">Focus Editor</span>
+            </div>
+            <div class="flex items-center gap-3 p-3 hover:bg-white/40 cursor-pointer transition-colors" onclick="openPage('project'); closeCommandPalette()">
+                <i data-lucide="layout" class="w-4 h-4 text-[var(--bh-blue)]"></i>
+                <span class="text-sm font-medium">Project Hub</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // 侧栏折叠
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        }
+
+        // 禅模式 (全沉浸悬浮)
+        function toggleZenMode() {
+            document.body.classList.toggle('zen-active');
+            const btn = document.getElementById('zen-btn-text');
+            if (document.body.classList.contains('zen-active')) {
+                btn.textContent = "Exit Zen";
+                setStatus("Zen mode activated.");
+            } else {
+                btn.textContent = "Zen Toggle";
+                setStatus("Restored layout.");
+            }
+        }
+
+        // 页面路由
+        function openPage(pageId) {
+            document.getElementById('page-project').classList.add('hidden');
+            document.getElementById('page-editor').classList.add('hidden');
+            document.getElementById('page-' + pageId).classList.remove('hidden');
+            closeCommandPalette();
+        }
+
+        // Tabs
+        function toggleProjectTab(tabId) {
+            ['changelog', 'timeline', 'kanban', 'gallery'].forEach(id => {
+                const el = document.getElementById('project-tab-' + id);
+                if (el) el.classList.add('hidden');
+                const btn = document.getElementById('btn-tab-' + id);
+                if (btn) btn.className = "spring-click px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] hover:text-black hover-ui";
+            });
+            const activeTab = document.getElementById('project-tab-' + tabId);
+            const activeBtn = document.getElementById('btn-tab-' + tabId);
+            if (activeTab) activeTab.classList.remove('hidden');
+            if (activeBtn) activeBtn.className = "spring-click px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-black bg-white/60 shadow-sm";
+        }
+
+        // 命令面板
+        function openCommandPalette() {
+            const pal = document.getElementById('command-palette');
+            const ov = document.getElementById('command-overlay');
+            pal.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
+            pal.classList.add('opacity-100', 'pointer-events-auto', 'scale-100');
+            ov.classList.remove('opacity-0', 'pointer-events-none');
+            ov.classList.add('opacity-100', 'pointer-events-auto');
+            document.getElementById('command-input').focus();
+        }
+
+        function closeCommandPalette() {
+            const pal = document.getElementById('command-palette');
+            const ov = document.getElementById('command-overlay');
+            pal.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+            pal.classList.remove('opacity-100', 'pointer-events-auto', 'scale-100');
+            ov.classList.add('opacity-0', 'pointer-events-none');
+            ov.classList.remove('opacity-100', 'pointer-events-auto');
+        }
+
+        document.addEventListener('keydown', e => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openCommandPalette(); }
+            if (e.key === 'Escape') closeCommandPalette();
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                const input = document.getElementById('quick-input');
+                if (input.value.trim()) {
+                    setStatus('Captured: ' + input.value);
+                    input.value = '';
+                }
+            }
+        });
+
+        // 状态 Toast
+        let toastTimer;
+        function setStatus(text) {
+            const toast = document.getElementById('status-toast');
+            toast.textContent = text;
+            toast.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
+                toast.classList.remove('opacity-100', 'translate-y-0');
+            }, 2500);
+        }
+
+        // Init
+        openPage('project');
+        toggleProjectTab('kanban');
+    </script>
+</body>
+</html>

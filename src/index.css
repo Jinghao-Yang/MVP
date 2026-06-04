@@ -21,7 +21,7 @@
   --shadow-glass: 0 12px 48px -12px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0,0,0,0.02);
   --shadow-card: 0 8px 24px -8px rgba(0,0,0,0.04);
   
-  /* 物理弹簧动效曲线 (Spring Physics) */
+  /* 物理弹簧动效曲线 */
   --spring-bounce: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   --spring-smooth: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 
@@ -37,21 +37,11 @@ body {
   font-family: 'Space Grotesk', sans-serif;
   font-size: 13.5px;
   
-  /* 【特性 1：背景质感化】极其微妙的网格暗纹 + 动态流体极光 */
-  background-size: 40px 40px, 40px 40px, 100% 100%, 100% 100%, 100% 100%;
+  /* 静态学术网格 */
+  background-size: 40px 40px, 40px 40px;
   background-image:
       linear-gradient(to right, rgba(28, 28, 26, 0.025) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(28, 28, 26, 0.025) 1px, transparent 1px),
-      radial-gradient(ellipse at 20% 50%, rgba(197, 83, 69, 0.035) 0%, transparent 60%),
-      radial-gradient(ellipse at 80% 20%, rgba(91, 123, 154, 0.04) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 80%, rgba(112, 138, 116, 0.035) 0%, transparent 50%);
-  background-attachment: fixed;
-  animation: ambient-breath 15s ease-in-out infinite alternate;
-}
-
-@keyframes ambient-breath {
-  0% { background-position: 0 0, 0 0, 0% 50%, 100% 0%, 50% 100%; }
-  100% { background-position: 0 0, 0 0, 15% 40%, 85% 15%, 45% 85%; }
+      linear-gradient(to bottom, rgba(28, 28, 26, 0.025) 1px, transparent 1px);
 }
 
 .font-sys { font-family: 'Space Grotesk', sans-serif; }
@@ -60,14 +50,11 @@ body {
 
 ::-webkit-scrollbar { display: none; }
 
-/* 【特性 4：果冻与弹簧动效】 */
-.spring-bounce { transition: var(--spring-bounce); }
-.spring-smooth { transition: var(--spring-smooth); }
-.spring-click { transition: var(--spring-bounce); cursor: pointer; }
+/* 物理缓入 */
+.spring-click { transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; }
 .spring-click:hover { transform: translateY(-2px) scale(1.01); }
-.spring-click:active { transform: translateY(1px) scale(0.96); transition: all 0.1s ease; }
+.spring-click:active { transform: translateY(1px) scale(0.96); transition: transform 0.15s ease; }
 
-/* 【特性 2 & 3：全局悬浮与玻璃质感】保留锐角直边 */
 .glass-panel {
   background: rgba(255, 255, 255, 0.45);
   backdrop-filter: blur(24px);
@@ -87,11 +74,20 @@ body {
   border-radius: 0px;
 }
 
-/* 【特性 6：隐藏式 UI】边框平时透明，Hover浮现 */
+/* 拖拽切断 */
+.glass-panel.dragging-active {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  box-shadow: none !important;
+  transition: none !important;
+}
+
+/* 隐藏式 UI 交互线 */
 .hover-ui {
   border: 1px solid var(--ui-hidden);
   background: transparent;
-  transition: var(--spring-smooth);
+  transition: border-color 0.4s ease, background-color 0.4s ease;
 }
 .hover-ui:hover {
   border-color: var(--ui-hover);
@@ -104,91 +100,74 @@ body {
   backdrop-filter: blur(8px);
   border: 1px solid var(--ui-hidden);
   box-shadow: var(--shadow-card);
-  transition: var(--spring-bounce);
+  /* ⚡ 【体验优化】：主面板的学术历史卡片应用 2.0s 极致舒适的重阻尼缓动 */
+  transition: transform 2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.8s ease, background-color 0.8s ease, box-shadow 0.8s ease;
   cursor: pointer;
   border-radius: 0px;
 }
+/* ⚡ 【体验优化】：Hover 时仅有微幅放大（1.03），且无任何位移 */
 .brutal-card:hover {
   border-color: var(--ui-hover);
-  transform: translateY(-4px) scale(1.02);
+  transform: scale(1.03);
   box-shadow: var(--shadow-glass);
   background: rgba(255, 255, 255, 0.9);
 }
-.brutal-card:active {
-  transform: translateY(0px) scale(0.98);
-  transition: all 0.1s ease;
+
+/* ⚡ 【生产力看板专精优化】：
+   看板（Pipeline）需要高频操作，避开 2.0s 慢速动画。
+   提供 180ms 的极速物理响应（Compositing Only），手感极度干练、爽快！ */
+.kanban-column {
+  transition: background-color 180ms ease, border-color 180ms ease !important;
+}
+.kanban-column:hover {
+  transform: none !important; /* 保持看板列在物理上的绝对锚定，防止晃眼 */
+}
+.kanban-card {
+  /* 180ms 极速缓动 */
+  transition: transform 180ms cubic-bezier(0.25, 1, 0.5, 1), border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease !important;
+}
+.kanban-card:hover {
+  transform: scale(1.02) !important; /* 看板卡片采用极其微弱、短促的 1.02 放大，不位移 */
 }
 
-/* 【特性 5：包豪斯低饱和配色标签】 */
-.tag-badge {
-  display: inline-block;
-  padding: 0.15rem 0.55rem;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  border-radius: 0px !important;
-  border: 1px solid transparent;
-}
-.tag-badge-yellow { background: rgba(209, 163, 77, 0.12); color: var(--bh-yellow); }
-.tag-badge-red { background: rgba(197, 83, 69, 0.1); color: var(--bh-red); }
-.tag-badge-blue { background: rgba(91, 123, 154, 0.12); color: var(--bh-blue); }
-.tag-badge-green { background: rgba(112, 138, 116, 0.15); color: var(--bh-green); }
-
-.card-theorem { border-left: 3px solid var(--bh-blue) !important; }
-
-/* —————— 全局悬浮布局 —————— */
+/* 侧边栏过渡 */
 .sidebar {
   position: fixed;
   top: 16px; left: 16px; bottom: 16px;
   width: var(--sidebar-width);
   z-index: 30;
-  transition: width var(--spring-bounce), transform var(--spring-bounce);
+  transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s ease;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
-.sidebar.collapsed { width: var(--sidebar-collapsed); }
-.sidebar.collapsed .sidebar-label,
-.sidebar.collapsed .nav-text,
-.sidebar.collapsed .logo-full { opacity: 0; pointer-events: none; transition: opacity 0.15s ease; }
-.sidebar.collapsed .logo-single { opacity: 1; pointer-events: auto; }
-.sidebar.collapsed .nav-item { justify-content: center; }
-.sidebar.collapsed .nav-item svg { margin: 0; }
-.sidebar.collapsed .nav-item span:not(.icon-only) { display: none; }
+.sidebar.collapsed { width: 0 !important; opacity: 0; pointer-events: none; transform: translateX(-100%); }
 
 .main-content {
-  margin-left: calc(var(--sidebar-width) + 32px);
   margin-top: 16px;
   margin-bottom: 16px;
   margin-right: 16px;
   height: calc(100vh - 32px);
-  transition: margin-left var(--spring-bounce), width var(--spring-bounce);
   display: flex;
   flex-direction: column;
   position: relative;
 }
-.sidebar.collapsed~.main-content { margin-left: calc(var(--sidebar-collapsed) + 32px); }
+.sidebar.collapsed~.main-content { margin-left: 16px !important; }
 
-/* 悬浮 Context Panel (图层深度) */
 #editor-context-panel {
-  position: absolute;
-  right: 16px;
-  top: 80px;
-  bottom: 16px;
-  width: 300px;
-  z-index: 40;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: transform var(--spring-bounce), opacity var(--spring-smooth);
+  transition: width 0.75s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease, transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+  background: transparent;
+  border-left: none;
+  box-shadow: none;
 }
 
-/* 隐藏UI：动作图标只有在父级 Hover 时才浮现 */
 .action-icon {
   opacity: 0;
   transform: scale(0.8) translateX(-5px);
-  transition: var(--spring-bounce);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
 }
 .group:hover .action-icon {
   opacity: 1;
@@ -204,7 +183,7 @@ body {
   font-weight: 500;
   background: transparent;
   color: var(--text-muted);
-  transition: var(--spring-smooth);
+  transition: background-color 0.3s ease, color 0.3s ease;
   cursor: pointer;
 }
 .stat-pill:hover {
@@ -213,38 +192,41 @@ body {
 }
 .stat-pill .stat-number { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--text-main); }
 
+/* 学术级极简双链 */
 .wiki-link {
   color: var(--bh-red);
-  border-bottom: 1px dotted var(--bh-red);
+  border-bottom: 1px dashed rgba(197, 83, 69, 0.4);
   cursor: pointer;
   padding: 0 4px;
-  transition: var(--spring-bounce);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
   position: relative;
   background: transparent;
 }
 .wiki-link:hover {
-  background: rgba(197, 83, 69, 0.08);
+  background: rgba(197, 83, 69, 0.05);
   border-bottom: 1px solid var(--bh-red);
-  transform: translateY(-1px);
 }
 
-.prose-reading p {
-  margin-bottom: 1.8em;
-  line-height: 1.75;
+/* 正文大字号化排版 */
+.prose-reading {
+  margin-bottom: 2em;
+  line-height: 1.85;
   color: var(--text-secondary);
-  font-size: 1.18rem;
+  font-size: 1.35rem;
 }
 
+/* 看板列过渡时间 */
 .stage-column {
   background: transparent;
   padding: 0.5rem;
   min-height: 280px;
-  transition: var(--spring-smooth);
+  transition: border-color 2s cubic-bezier(0.16, 1, 0.3, 1), background-color 2s cubic-bezier(0.16, 1, 0.3, 1), transform 2s cubic-bezier(0.16, 1, 0.3, 1);
   border: 1px solid transparent;
+  border-radius: 6px;
 }
 .stage-column:hover {
-  background: rgba(255,255,255,0.3);
-  border-color: rgba(0,0,0,0.03);
+  background: rgba(28, 28, 26, 0.03);
+  transform: scale(1.01);
 }
 .stage-column .column-header {
   font-size: 10px;
@@ -281,7 +263,7 @@ body {
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
   color: var(--text-muted);
-  transition: var(--spring-bounce);
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
 }
 .quick-capture.collapsed { transform: translate(-50%, 150%); opacity: 0; }
 .quick-capture input {
@@ -290,12 +272,47 @@ body {
 }
 .quick-capture input::placeholder { color: var(--text-muted); opacity: 0.6; }
 
-body.zen-active {
-  /* This is handled via React state for classes */
-}
 body.zen-active .sidebar { transform: translateX(calc(-100% - 32px)); }
 body.zen-active .main-content { margin-left: 16px !important; }
-body.zen-active #editor-context-panel { transform: translateX(120%); opacity: 0; pointer-events: none; }
+body.zen-active #editor-context-panel { transform: translateX(120%) !important; opacity: 0 !important; pointer-events: none !important; }
 body.zen-active .quick-capture { transform: translate(-50%, 150%); }
 
 .scroll-hide::-webkit-scrollbar { display: none; }
+
+/* 1.5s 极长阻尼 Expo 缓入曲线（去除 scale 和 blur） */
+@keyframes popup-inner-entrance {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.popup-inner {
+  animation: popup-inner-entrance 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Changelog 一体化物理动画 */
+.changelog-node {
+  transition: transform 2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.changelog-node:hover {
+  transform: translateY(-8px);
+}
+.changelog-node:hover .brutal-card {
+  border-color: var(--ui-hover);
+  box-shadow: var(--shadow-glass);
+  background: #FFFFFF;
+  transform: none !important; /* 强制拦截子卡片的二次独立位移 */
+}
+
+/* 板块切换快速转场动画 */
+@keyframes pane-slide {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.pane-active {
+  animation: pane-slide 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
