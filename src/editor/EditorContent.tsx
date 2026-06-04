@@ -2,7 +2,7 @@
    FILE: src/editor/EditorContent.tsx
    ================================================ */
 import { memo, useCallback } from 'react';
-import { Eye, EyeOff, MessageSquareText } from 'lucide-react';
+import { Eye, EyeOff, MessageSquareText, ChevronLeft, ChevronRight } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { EditorView } from '@codemirror/view';
@@ -27,6 +27,12 @@ export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorCont
   const documentText = useAppStore((state) => state.documentText);
   const handleMouseEnter = useAppStore((state) => state.handleMouseEnter);
   const handleMouseLeave = useAppStore((state) => state.handleMouseLeave);
+  const loadWikiContent = useAppStore((state) => state.loadWikiContent);
+  const goBack = useAppStore((state) => state.goBack);
+  const goForward = useAppStore((state) => state.goForward);
+  const canGoBack = useAppStore((state) => state.canGoBack);
+  const canGoForward = useAppStore((state) => state.canGoForward);
+  const currentWikiId = useAppStore((state) => state.currentWikiId);
 
   const handleCodeMirrorChange = useCallback(
     (value: string) => {
@@ -37,6 +43,25 @@ export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorCont
 
   const linkHoverExtension = useCallback(() => {
     return EditorView.domEventHandlers({
+      click: (event, view) => {
+        const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+        if (pos !== null) {
+          const line = view.state.doc.lineAt(pos);
+          const offset = pos - line.from;
+          const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
+          let match;
+
+          while ((match = regex.exec(line.text)) !== null) {
+            if (offset >= match.index && offset <= match.index + match[0].length) {
+              const wikiId = match[2];
+              event.preventDefault();
+              loadWikiContent(wikiId);
+              return true;
+            }
+          }
+        }
+        return false;
+      },
       mousemove: (event, view) => {
         if (useAppStore.getState().isUserDragging) return;
 
@@ -76,12 +101,33 @@ export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorCont
         handleMouseLeave('any');
       },
     });
-  }, [handleMouseEnter, handleMouseLeave])();
+  }, [handleMouseEnter, handleMouseLeave, loadWikiContent])();
 
   return (
     <main className="flex-1 flex flex-col h-full overflow-y-auto scroll-hide">
       <header className="h-20 flex items-center justify-between px-12 z-10 shrink-0 sticky top-0 bg-gradient-to-b from-[var(--bg-canvas)] to-transparent">
         <div className="font-sys text-xs uppercase tracking-[0.12em] text-[var(--text-muted)] flex items-center gap-3">
+          {/* 导航按钮 */}
+          {currentWikiId && (
+            <div className="flex items-center gap-1 mr-2">
+              <button
+                onClick={goBack}
+                disabled={!canGoBack()}
+                className={`p-1 border-none bg-transparent transition-colors ${canGoBack() ? 'text-neutral-700 hover:text-black cursor-pointer' : 'text-neutral-300 cursor-not-allowed'}`}
+                title="Go back"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={goForward}
+                disabled={!canGoForward()}
+                className={`p-1 border-none bg-transparent transition-colors ${canGoForward() ? 'text-neutral-700 hover:text-black cursor-pointer' : 'text-neutral-300 cursor-not-allowed'}`}
+                title="Go forward"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
           <span
             className="hover:text-[var(--text-main)] cursor-pointer transition-colors"
             onClick={() => onOpenPage('project')}

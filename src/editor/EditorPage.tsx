@@ -10,6 +10,7 @@ import { EditorSidebar } from './EditorSidebar';
 
 export function EditorPageContent({ isZenMode, onToggleZen, openPage }: EditorPageProps) {
   const popups = useAppStore((state) => state.popups);
+  const recentlyClosedPopups = useAppStore((state) => state.recentlyClosedPopups);
   const handleMouseEnter = useAppStore((state) => state.handleMouseEnter);
   const handleMouseLeave = useAppStore((state) => state.handleMouseLeave);
   const handlePopoverMouseEnter = useAppStore((state) => state.handlePopoverMouseEnter);
@@ -19,6 +20,7 @@ export function EditorPageContent({ isZenMode, onToggleZen, openPage }: EditorPa
   const togglePin = useAppStore((state) => state.togglePin);
   const toggleMinimize = useAppStore((state) => state.toggleMinimize);
   const closePopup = useAppStore((state) => state.closePopup);
+  const restorePopup = useAppStore((state) => state.restorePopup);
   const setIsUserDragging = useAppStore((state) => state.setIsUserDragging);
 
   const visiblePopups = useMemo(() => {
@@ -68,6 +70,25 @@ export function EditorPageContent({ isZenMode, onToggleZen, openPage }: EditorPa
             >
               <span>📂</span>
               <span>{p.title}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {recentlyClosedPopups.length > 0 && (
+        <div className="fixed bottom-14 right-6 z-50 flex flex-wrap gap-2 items-center justify-end max-w-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <span className="font-mono text-xs uppercase text-neutral-400 mr-1 select-none">
+            Recently Closed:
+          </span>
+          {recentlyClosedPopups.map((rc) => (
+            <button
+              key={rc.popup.id}
+              onClick={() => restorePopup(rc.popup.id)}
+              className="px-2.5 py-1.5 glass-panel text-xs font-bold uppercase tracking-wider shadow-md hover-ui cursor-pointer border-none flex items-center gap-1 bg-neutral-800/80 text-white"
+              title={`Click to restore "${rc.popup.title}"`}
+            >
+              <span>🗑️</span>
+              <span>{rc.popup.title}</span>
             </button>
           ))}
         </div>

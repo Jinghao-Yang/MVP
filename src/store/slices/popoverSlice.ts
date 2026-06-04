@@ -3,11 +3,17 @@ import type React from 'react';
 import type { PopupData } from '@/types';
 import { wikiDb } from '@/data/wikiDb';
 
+export interface RecentlyClosedPopup {
+  popup: PopupData;
+  closedAt: number;
+}
+
 export interface PopoverSlice {
   popups: PopupData[];
   loadingWikiId: string | null;
   activePopupId: string | null;
   isUserDragging: boolean;
+  recentlyClosedPopups: RecentlyClosedPopup[];
 
   setIsUserDragging: (dragging: boolean) => void;
   handleMouseEnter: (
@@ -24,6 +30,8 @@ export interface PopoverSlice {
   togglePin: (id: string) => void;
   toggleMinimize: (id: string) => void;
   closePopup: (id: string) => void;
+  restorePopup: (id: string) => void;
+  clearRecentlyClosed: () => void;
   navigatePopover: (popupId: string, direction: 'forward' | 'backward') => void;
   openLinkInPopover: (popupId: string, targetWikiId: string) => void;
 }
@@ -35,6 +43,7 @@ export const createPopoverSlice: StateCreator<PopoverSlice, [], [], PopoverSlice
   loadingWikiId: null,
   activePopupId: null,
   isUserDragging: false,
+  recentlyClosedPopups: [],
 
   setIsUserDragging: (dragging) => set({ isUserDragging: dragging }),
 
@@ -167,9 +176,36 @@ export const createPopoverSlice: StateCreator<PopoverSlice, [], [], PopoverSlice
   },
 
   closePopup: (id) =>
-    set((prev) => ({
-      popups: prev.popups.filter((p) => p.id !== id),
-    })),
+    set((prev) => {
+      const popupToClose = prev.popups.find((p) => p.id === id);
+      if (!popupToClose) {
+        return { popups: prev.popups.filter((p) => p.id !== id) };
+      }
+
+      const newRecentlyClosed = [
+        { popup: popupToClose, closedAt: Date.now() },
+        ...prev.recentlyClosedPopups.filter((rc) => rc.popup.id !== id),
+      ].slice(0, 5);
+
+      return {
+        popups: prev.popups.filter((p) => p.id !== id),
+        recentlyClosedPopups: newRecentlyClosed,
+      };
+    }),
+
+  restorePopup: (id) =>
+    set((prev) => {
+      const closedPopup = prev.recentlyClosedPopups.find((rc) => rc.popup.id === id);
+      if (!closedPopup) return prev;
+
+      return {
+        popups: [...prev.popups, { ...closedPopup.popup, isMinimized: false }],
+        recentlyClosedPopups: prev.recentlyClosedPopups.filter((rc) => rc.popup.id !== id),
+        activePopupId: id,
+      };
+    }),
+
+  clearRecentlyClosed: () => set({ recentlyClosedPopups: [] }),
 
   navigatePopover: (popupId, direction) => {
     set((prev) => {
