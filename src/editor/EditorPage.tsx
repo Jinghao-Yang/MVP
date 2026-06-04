@@ -1,98 +1,29 @@
 /* ================================================
    FILE: src/editor/EditorPage.tsx
    ================================================ */
-import { memo, useMemo } from 'react';
-import type { EditorPageProps, PopupData } from '@/types';
-import { useAppStore } from '@/store/useAppStore';
-import { PopoverCard } from './components/PopoverCard';
+import { memo } from 'react';
+import type { EditorPageProps } from '@/types';
 import { EditorContent } from './EditorContent';
-import { EditorSidebar } from './EditorSidebar';
+import { EditorRightPane } from './components/EditorRightPane';
+import { PopupManager } from './components/PopupManager';
+import { MinimizedPopups } from './components/MinimizedPopups';
 
 export function EditorPageContent({ isZenMode, onToggleZen, openPage }: EditorPageProps) {
-  const popups = useAppStore((state) => state.popups);
-  const recentlyClosedPopups = useAppStore((state) => state.recentlyClosedPopups);
-  const handleMouseEnter = useAppStore((state) => state.handleMouseEnter);
-  const handleMouseLeave = useAppStore((state) => state.handleMouseLeave);
-  const handlePopoverMouseEnter = useAppStore((state) => state.handlePopoverMouseEnter);
-  const handlePopoverMouseLeave = useAppStore((state) => state.handlePopoverMouseLeave);
-  const handlePositionChange = useAppStore((state) => state.handlePositionChange);
-  const handleSizeChange = useAppStore((state) => state.handleSizeChange);
-  const togglePin = useAppStore((state) => state.togglePin);
-  const toggleMinimize = useAppStore((state) => state.toggleMinimize);
-  const closePopup = useAppStore((state) => state.closePopup);
-  const restorePopup = useAppStore((state) => state.restorePopup);
-  const setIsUserDragging = useAppStore((state) => state.setIsUserDragging);
-
-  const visiblePopups = useMemo(() => {
-    return popups.filter((p: PopupData) => !p.isMinimized);
-  }, [popups]);
-
-  const minimizedPopups = useMemo(() => {
-    return popups.filter((p: PopupData) => p.isMinimized);
-  }, [popups]);
-
   return (
     <div className="page-panel flex-1 flex flex-row h-full overflow-hidden relative bg-transparent">
-      {/* 左侧正文编辑器 */}
-      <EditorContent isZenMode={isZenMode} onToggleZen={onToggleZen} onOpenPage={openPage} />
+      {/* 左栏：主创作文档编辑器 */}
+      <div className="flex-1 flex flex-col h-full border-r border-neutral-200/50">
+        <EditorContent isZenMode={isZenMode} onToggleZen={onToggleZen} onOpenPage={openPage} />
+      </div>
 
-      {/* 右侧常驻批注边栏 */}
-      <EditorSidebar isZenMode={isZenMode} />
+      {/* 右栏：双栏联动学术对照阅读/编辑器 */}
+      {!isZenMode && <EditorRightPane />}
 
-      {visiblePopups.map((popup: PopupData) => (
-        <PopoverCard
-          key={popup.id}
-          popup={popup}
-          onClose={() => closePopup(popup.id)}
-          onPinToggle={() => togglePin(popup.id)}
-          onMinimizeToggle={() => toggleMinimize(popup.id)}
-          onPositionChange={(x: number, y: number) => handlePositionChange(popup.id, x, y)}
-          onSizeChange={(w, h) => handleSizeChange(popup.id, w, h)}
-          onMouseEnter={() => handlePopoverMouseEnter(popup.id)}
-          onMouseLeave={() => handlePopoverMouseLeave(popup.id)}
-          onLinkHover={handleMouseEnter}
-          onLinkLeave={handleMouseLeave}
-          onDragStart={() => setIsUserDragging(true)}
-          onDragEnd={() => setIsUserDragging(false)}
-        />
-      ))}
+      {/* 悬浮多级弹窗 */}
+      <PopupManager />
 
-      {minimizedPopups.length > 0 && (
-        <div className="fixed bottom-24 right-6 z-50 flex flex-wrap gap-2 items-center justify-end max-w-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <span className="font-mono text-xs uppercase text-neutral-400 mr-1 select-none">
-            Minimized:
-          </span>
-          {minimizedPopups.map((p: PopupData) => (
-            <button
-              key={p.id}
-              onClick={() => toggleMinimize(p.id)}
-              className="px-2.5 py-1.5 glass-panel text-xs font-bold uppercase tracking-wider shadow-md hover-ui cursor-pointer border-none flex items-center gap-1 bg-white/70"
-            >
-              <span>📂</span>
-              <span>{p.title}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {recentlyClosedPopups.length > 0 && (
-        <div className="fixed bottom-14 right-6 z-50 flex flex-wrap gap-2 items-center justify-end max-w-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <span className="font-mono text-xs uppercase text-neutral-400 mr-1 select-none">
-            Recently Closed:
-          </span>
-          {recentlyClosedPopups.map((rc) => (
-            <button
-              key={rc.popup.id}
-              onClick={() => restorePopup(rc.popup.id)}
-              className="px-2.5 py-1.5 glass-panel text-xs font-bold uppercase tracking-wider shadow-md hover-ui cursor-pointer border-none flex items-center gap-1 bg-neutral-800/80 text-white"
-              title={`Click to restore "${rc.popup.title}"`}
-            >
-              <span>🗑️</span>
-              <span>{rc.popup.title}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      {/* 最小化弹窗和最近关闭弹窗列表 */}
+      <MinimizedPopups />
     </div>
   );
 }

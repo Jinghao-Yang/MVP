@@ -1,11 +1,11 @@
 /* ================================================
    FILE: src/editor/components/PopoverCard.tsx
    ================================================ */
-import React, { useState, memo, useMemo, useEffect } from 'react';
-import { Pin, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, memo, useEffect } from 'react';
+import { Pin, Minimize2 } from 'lucide-react';
 import { motion, useDragControls } from 'motion/react';
 import type { PopoverCardProps } from '@/types';
-import { useAppStore } from '@/store/useAppStore';
+import { usePopupStore } from '@/stores/popup-store';
 
 export const PopoverCard: React.FC<PopoverCardProps> = memo(
   ({
@@ -22,9 +22,8 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
     onDragStart,
     onDragEnd,
   }) => {
-    const bringToFront = useAppStore((state) => state.bringToFront);
-    const activePopupId = useAppStore((state) => state.activePopupId);
-    const navigatePopover = useAppStore((state) => state.navigatePopover);
+    const bringToFront = usePopupStore((state) => state.bringToFront);
+    const activePopupId = usePopupStore((state) => state.activePopupId);
     const dragControls = useDragControls();
 
     const [size, setSize] = useState({ w: popup.width, h: popup.height });
@@ -42,15 +41,6 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
       return () => window.removeEventListener('resize', checkScreenSize);
     }, []);
 
-    const hasBack = useMemo(
-      () => popup.history && (popup.historyIndex ?? 0) > 0,
-      [popup.history, popup.historyIndex]
-    );
-    const hasForward = useMemo(
-      () => popup.history && (popup.historyIndex ?? 0) < popup.history.length - 1,
-      [popup.history, popup.historyIndex]
-    );
-
     const handleResizeStart = (e: React.PointerEvent) => {
       e.preventDefault();
       bringToFront(popup.id);
@@ -62,10 +52,9 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
       const startH = size.h;
 
       const onMove = (moveEvent: PointerEvent) => {
-        setSize({
-          w: Math.max(300, startW + (moveEvent.clientX - startX)),
-          h: Math.max(200, startH + (moveEvent.clientY - startY)),
-        });
+        const nextW = Math.max(320, startW + (moveEvent.clientX - startX));
+        const nextH = Math.max(200, startH + (moveEvent.clientY - startY));
+        setSize({ w: nextW, h: nextH });
       };
 
       const onUp = () => {
@@ -84,13 +73,11 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
         drag={!isSmallScreen}
         dragControls={dragControls}
         dragListener={false}
-        // 🌟 手感重塑：彻底抛弃滑移感和橡皮筋，采用绝对 1:1 干脆追踪映射，像真的一张实体卡片被按住一样
+        // 极致的物理追手，彻底剥离拖拽后的残留动量及不真实偏移
         dragMomentum={false}
         dragElastic={0}
-        // 🌟 入场重塑：极简的高端弹性展开与光学模糊解开
         initial={{ opacity: 0, y: popup.y + 16, scale: 0.96, filter: 'blur(6px)' }}
         animate={{ opacity: 1, y: popup.y, scale: 1, filter: 'blur(0px)' }}
-        // 高手感弹簧阻尼模型，强力无抖动
         transition={{ type: 'spring', stiffness: 500, damping: 40, mass: 0.8 }}
         onPointerDown={() => bringToFront(popup.id)}
         onDragStart={() => {
@@ -105,10 +92,9 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
         }}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
-        // 拖拽时：取消所有的旋转，只做轻微抓取放大和阴影强化，极具克制感
         whileDrag={{
-          scale: 1.015,
-          boxShadow: '0 24px 48px -12px rgba(0,0,0,0.15)',
+          scale: 1.01,
+          boxShadow: '0 24px 48px -12px rgba(0,0,0,0.12)',
           cursor: 'grabbing',
         }}
         style={{
@@ -121,7 +107,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
           maxHeight: isSmallScreen ? '80vh' : 'none',
           zIndex: isActive ? 200 : 100 + popup.depth,
         }}
-        className={`glass-panel border border-neutral-300 shadow-[0_12px_40px_rgba(0,0,0,0.06)] flex flex-col overflow-hidden transition-colors ${
+        className={`glass-panel border border-neutral-300/80 shadow-[0_12px_40px_rgba(0,0,0,0.06)] flex flex-col overflow-hidden transition-colors ${
           isActive ? 'bg-white/95 border-neutral-400' : 'bg-white/70'
         }`}
       >
@@ -132,30 +118,6 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
           >
             <div className="flex items-center gap-2">
               <span className={`tag-badge ${popup.badgeClass}`}>{popup.badge}</span>
-              {popup.history && popup.history.length > 1 && (
-                <div className="flex items-center bg-black/5 rounded px-1">
-                  <button
-                    disabled={!hasBack}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigatePopover(popup.id, 'backward');
-                    }}
-                    className={`p-0.5 border-none bg-transparent transition-colors ${hasBack ? 'text-neutral-700 hover:text-black cursor-pointer' : 'text-neutral-300 cursor-not-allowed'}`}
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    disabled={!hasForward}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigatePopover(popup.id, 'forward');
-                    }}
-                    className={`p-0.5 border-none bg-transparent transition-colors ${hasForward ? 'text-neutral-700 hover:text-black cursor-pointer' : 'text-neutral-300 cursor-not-allowed'}`}
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
             </div>
             <div className="flex items-center gap-1.5">
               <button
@@ -163,7 +125,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
                   e.stopPropagation();
                   onPinToggle();
                 }}
-                className={`p-1 hover:bg-black/10 transition-colors border-none cursor-pointer ${popup.isPinned ? 'text-[var(--bh-red)]' : 'text-neutral-400'}`}
+                className={`p-1 hover:bg-black/10 transition-colors border-none cursor-pointer bg-transparent ${popup.isPinned ? 'text-[var(--bh-red)]' : 'text-neutral-400'}`}
               >
                 <Pin className="w-3.5 h-3.5" />
               </button>
@@ -172,7 +134,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
                   e.stopPropagation();
                   onMinimizeToggle();
                 }}
-                className="p-1 hover:bg-black/10 transition-colors text-neutral-400 hover:text-black border-none cursor-pointer"
+                className="p-1 hover:bg-black/10 transition-colors text-neutral-400 hover:text-black border-none cursor-pointer bg-transparent"
               >
                 <Minimize2 className="w-3.5 h-3.5" />
               </button>
@@ -181,7 +143,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
                   e.stopPropagation();
                   onClose();
                 }}
-                className="p-1 hover:bg-black/10 transition-colors text-neutral-400 hover:text-black font-bold border-none cursor-pointer text-xs"
+                className="p-1 hover:bg-black/10 transition-colors text-neutral-400 hover:text-black font-bold border-none cursor-pointer text-xs bg-transparent"
               >
                 ✕
               </button>
@@ -192,16 +154,15 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
             {popup.title}
           </h5>
 
-          <div className="flex-1 overflow-y-auto scroll-hide px-4 pb-4">
-            <p className="prose-reading font-human outline-none text-neutral-700 leading-relaxed">
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-4">
+            <p className="prose-reading font-human outline-none text-neutral-700 leading-relaxed text-[15px]">
               {popup.id === 'heine-borel' ? (
                 <>
                   In metric spaces, a subset is closed and bounded iff it is{' '}
                   <span
-                    className="cm-link font-bold"
+                    className="cm-wysiwyg-link font-medium text-[var(--bh-red)] relative px-0.5 cursor-pointer"
                     onMouseEnter={(e: React.MouseEvent) => {
-                      // 内联链接也受防选与防拖拽机制拦截保护
-                      if (useAppStore.getState().isUserDragging) return;
+                      if (usePopupStore.getState().isUserDragging) return;
                       if (window.getSelection()?.toString().trim().length) return;
                       onLinkHover(e, 'compactness', popup.depth);
                     }}

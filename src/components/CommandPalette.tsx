@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { useOverlay } from '@/hooks/useOverlay';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -7,6 +8,8 @@ interface CommandPaletteProps {
 }
 
 function CommandPaletteComponent({ isOpen, onClose, onOpenPage }: CommandPaletteProps) {
+  const { overlayProps } = useOverlay({ isOpen, onClose });
+
   const handleCommand = (page: string) => {
     onOpenPage(page);
     onClose();
@@ -14,10 +17,7 @@ function CommandPaletteComponent({ isOpen, onClose, onOpenPage }: CommandPalette
 
   return (
     <>
-      <div
-        className={`command-overlay fixed inset-0 z-[99] bg-black/5 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-        onClick={onClose}
-      ></div>
+      <div {...overlayProps}></div>
       <div
         className={`command-palette fixed top-[20%] left-1/2 -translate-x-1/2 glass-panel-deep w-[600px] max-w-[90vw] p-2 z-[100] transition-all duration-300 ${isOpen ? 'opacity-100 pointer-events-auto scale-100' : 'opacity-0 pointer-events-none scale-95'}`}
       >

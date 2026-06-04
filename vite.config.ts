@@ -13,10 +13,37 @@ export default defineConfig(() => {
         '@/pages': path.resolve(__dirname, './src/pages'),
         '@/editor': path.resolve(__dirname, './src/editor'),
         '@/layout': path.resolve(__dirname, './src/layout'),
-        '@/store': path.resolve(__dirname, './src/store'),
+        '@/stores': path.resolve(__dirname, './src/stores'),
+        '@/db': path.resolve(__dirname, './src/db'),
+        '@/hooks': path.resolve(__dirname, './src/hooks'),
         '@/types': path.resolve(__dirname, './src/@types'),
         '@/data': path.resolve(__dirname, './src/data'),
       },
+    },
+    build: {
+      minify: 'esbuild',
+      esbuild: {
+        drop: ['console', 'debugger'],
+      },
+      sourcemap: false,
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom'],
+            'codemirror': ['@uiw/react-codemirror', '@codemirror/lang-markdown', '@codemirror/view'],
+            'dnd-kit': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+            'other-vendor': ['lucide-react', 'motion', 'dexie', 'zustand'],
+          },
+        },
+      },
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'lucide-react', 'motion', 'zustand'],
+      force: false,
+    },
+    server: {
+      force: false,
     },
   };
 });

@@ -2,11 +2,13 @@
    FILE: src/editor/EditorContent.tsx
    ================================================ */
 import { memo, useCallback } from 'react';
-import { Eye, EyeOff, MessageSquareText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Eye, EyeOff, ChevronLeft, ChevronRight } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { EditorView } from '@codemirror/view';
-import { useAppStore } from '@/store/useAppStore';
+import { usePopupStore, type PopupState } from '@/stores/popup-store';
+import { useEditorStore, type EditorState } from '@/stores/editor-store';
+import { wysiwygLinkFolderPlugin } from './extensions/wysiwyg-link';
 
 interface EditorContentProps {
   isZenMode: boolean;
@@ -14,25 +16,17 @@ interface EditorContentProps {
   onOpenPage: (page: string) => void;
 }
 
-const INITIAL_TEXT = `# Compactness in topological spaces
-
-This space maps the foundational structures of topological spaces. It bridges the intuitive notion of [closeness](compactness) without relying on strict metrics. The essence of compactness captures the idea that a space is, in some sense, "not too large" or "manageable", even if it contains infinitely many points.
-
-A topological space is a set endowed with a structure, called a topology, which allows defining continuous deformation of subspaces. Generalizing the [Heine–Borel](heine-borel) theorem requires us to move beyond Euclidean constraints.
-
-This brings us to [Tychonoff's Theorem](tychonoff), which extends compactness to arbitrary products — a deep result relying on the Axiom of Choice.`;
-
 export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorContentProps) {
-  const setDocumentText = useAppStore((state) => state.setDocumentText);
-  const documentText = useAppStore((state) => state.documentText);
-  const handleMouseEnter = useAppStore((state) => state.handleMouseEnter);
-  const handleMouseLeave = useAppStore((state) => state.handleMouseLeave);
-  const loadWikiContent = useAppStore((state) => state.loadWikiContent);
-  const goBack = useAppStore((state) => state.goBack);
-  const goForward = useAppStore((state) => state.goForward);
-  const canGoBack = useAppStore((state) => state.canGoBack);
-  const canGoForward = useAppStore((state) => state.canGoForward);
-  const currentWikiId = useAppStore((state) => state.currentWikiId);
+  const setDocumentText = useEditorStore((state: EditorState) => state.setDocumentText);
+  const documentText = useEditorStore((state: EditorState) => state.documentText);
+  const handleMouseEnter = usePopupStore((state: PopupState) => state.handleMouseEnter);
+  const handleMouseLeave = usePopupStore((state: PopupState) => state.handleMouseLeave);
+  const loadWikiContent = useEditorStore((state: EditorState) => state.loadWikiContent);
+  const goBack = useEditorStore((state: EditorState) => state.goBack);
+  const goForward = useEditorStore((state: EditorState) => state.goForward);
+  const canGoBack = useEditorStore((state: EditorState) => state.canGoBack);
+  const canGoForward = useEditorStore((state: EditorState) => state.canGoForward);
+  const currentWikiId = useEditorStore((state: EditorState) => state.currentWikiId);
 
   const handleCodeMirrorChange = useCallback(
     (value: string) => {
@@ -44,6 +38,16 @@ export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorCont
   const linkHoverExtension = useCallback(() => {
     return EditorView.domEventHandlers({
       click: (event, view) => {
+        const target = event.target as HTMLElement;
+        if (target && target.classList.contains('cm-wysiwyg-link')) {
+          const wikiId = target.getAttribute('data-target');
+          if (wikiId) {
+            event.preventDefault();
+            loadWikiContent(wikiId);
+            return true;
+          }
+        }
+
         const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
         if (pos !== null) {
           const line = view.state.doc.lineAt(pos);
@@ -63,11 +67,20 @@ export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorCont
         return false;
       },
       mousemove: (event, view) => {
-        if (useAppStore.getState().isUserDragging) return;
+        if (usePopupStore.getState().isUserDragging) return;
 
         if (window.getSelection()?.toString().trim().length) {
           handleMouseLeave('any');
           return;
+        }
+
+        const el = event.target as HTMLElement;
+        if (el && el.classList.contains('cm-wysiwyg-link')) {
+          const targetWikiId = el.getAttribute('data-target');
+          if (targetWikiId) {
+            handleMouseEnter(event, targetWikiId, 0);
+            return;
+          }
         }
 
         const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
@@ -104,10 +117,9 @@ export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorCont
   }, [handleMouseEnter, handleMouseLeave, loadWikiContent])();
 
   return (
-    <main className="flex-1 flex flex-col h-full overflow-y-auto scroll-hide">
+    <main className="flex-1 flex flex-col h-full overflow-y-auto custom-scrollbar">
       <header className="h-20 flex items-center justify-between px-12 z-10 shrink-0 sticky top-0 bg-gradient-to-b from-[var(--bg-canvas)] to-transparent">
         <div className="font-sys text-xs uppercase tracking-[0.12em] text-[var(--text-muted)] flex items-center gap-3">
-          {/* 导航按钮 */}
           {currentWikiId && (
             <div className="flex items-center gap-1 mr-2">
               <button
@@ -138,18 +150,11 @@ export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorCont
           <span className="text-[var(--text-main)] font-semibold font-sys">Focus Mode</span>
         </div>
 
-        <div className="flex items-center gap-1.5 p-1 bg-white/30 backdrop-blur-md border border-black/5">
-          <div className="px-3 py-1.5 text-[11px] uppercase tracking-widest font-bold text-black bg-white/60 shadow-sm flex items-center gap-2 select-none">
-            <MessageSquareText className="w-3.5 h-3.5" />
-            Annotations
-            <span className="bg-[var(--bh-red)] text-white px-1.5 py-0.5 rounded-full text-[10px] leading-none font-sans ml-1">
-              2
-            </span>
-          </div>
-          <div className="w-px h-3 bg-black/10 mx-1"></div>
+        {/* 🌟 极致净化：完全移除 Annotations 控制块与竖线，仅留禅模式切换按钮 */}
+        <div className="flex items-center p-1 bg-white/30 backdrop-blur-md border border-black/5">
           <button
             onClick={onToggleZen}
-            className="hover-ui p-1.5 cursor-pointer border-none rounded-none"
+            className="hover-ui p-1.5 cursor-pointer border-none rounded-none bg-transparent"
             title="Zen Toggle"
           >
             {isZenMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -161,15 +166,20 @@ export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorCont
         <div className="w-full max-w-[680px] relative">
           <div className="mb-4">
             <span className="font-sys text-[11px] uppercase tracking-widest text-[var(--bh-red)] block mb-4">
-              Document // 01
+              ACTIVE DOCUMENT // MAIN DRAFT
             </span>
           </div>
 
           <div className="animate-in fade-in duration-150">
             <CodeMirror
-              value={documentText || INITIAL_TEXT}
+              value={documentText}
               onChange={handleCodeMirrorChange}
-              extensions={[markdown(), linkHoverExtension, EditorView.lineWrapping]}
+              extensions={[
+                markdown(),
+                linkHoverExtension,
+                wysiwygLinkFolderPlugin,
+                EditorView.lineWrapping,
+              ]}
               theme="none"
               basicSetup={{
                 lineNumbers: false,

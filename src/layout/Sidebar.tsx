@@ -1,28 +1,38 @@
 /* ================================================
    FILE: src/layout/Sidebar.tsx
    ================================================ */
-import { memo, useState, useRef, useEffect } from 'react';
+import { memo, useRef, useEffect } from 'react';
 import { ChevronRight, Search, Plus, Settings, Pin, PinOff } from 'lucide-react';
 import type { SidebarProps } from '@/types';
-import { useAppStore } from '@/store/useAppStore';
+import { useUiStore, type UiState } from '@/stores/ui-store';
+import { useShallow } from 'zustand/react/shallow';
 
 function SidebarComponent({
-  isCollapsed,
   openPage,
   openCommandPalette,
   setStatus,
-}: Omit<SidebarProps, 'onToggle' | 'activePage' | 'onMouseEnter' | 'onMouseLeave'>) {
-  const isZenMode = useAppStore((state) => state.isZenMode);
-  const isSidebarPinned = useAppStore((state) => state.isSidebarPinned);
-  const toggleSidebarPin = useAppStore((state) => state.toggleSidebarPin);
-  const [localHover, setLocalHover] = useState(false);
+}: Omit<
+  SidebarProps,
+  'onToggle' | 'activePage' | 'onMouseEnter' | 'onMouseLeave' | 'isCollapsed'
+>) {
+  // 合并为单一订阅，减少不必要的重渲染
+  const { isZenMode, isSidebarPinned, toggleSidebarPin, isSidebarHovered, setSidebarHovered } =
+    useUiStore(
+      useShallow((state: UiState) => ({
+        isZenMode: state.isZenMode,
+        isSidebarPinned: state.isSidebarPinned,
+        toggleSidebarPin: state.toggleSidebarPin,
+        isSidebarHovered: state.isSidebarHovered,
+        setSidebarHovered: state.setSidebarHovered,
+      }))
+    );
+
   const closeTimer = useRef<NodeJS.Timeout | null>(null);
   const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
-  // 是否真正展开（固定模式下忽略 isCollapsed 和 hover）
-  const isExpanded = isSidebarPinned || (!isCollapsed && localHover);
+  // 统一由全局 store 驱动展开状态，解决 layout 和 sidebar 间的逻辑死锁
+  const isExpanded = isSidebarPinned || isSidebarHovered;
 
-  // 清除关闭计时器
   const clearCloseTimer = () => {
     if (closeTimer.current) {
       clearTimeout(closeTimer.current);
@@ -30,36 +40,33 @@ function SidebarComponent({
     }
   };
 
-  // 鼠标进入侧边栏或感应区 -> 立即展开（如果未固定且未 Zen）
   const handleExpand = () => {
     if (isSidebarPinned || isZenMode || isTouch) return;
     clearCloseTimer();
-    setLocalHover(true);
+    setSidebarHovered(true);
   };
 
-  // 鼠标离开侧边栏 -> 延迟关闭
   const handleCollapse = () => {
     if (isSidebarPinned || isZenMode || isTouch) return;
     clearCloseTimer();
     closeTimer.current = setTimeout(() => {
-      setLocalHover(false);
-    }, 300);
+      setSidebarHovered(false);
+    }, 250);
   };
 
-  // 组件卸载时清除计时器
   useEffect(() => {
     return () => clearCloseTimer();
   }, []);
 
   return (
     <>
-      {/* 边缘感应区（触摸屏不渲染） */}
+      {/* 物理边缘感应触发区 */}
       {!isTouch && !isSidebarPinned && !isZenMode && (
         <div
           onMouseEnter={handleExpand}
-          className="fixed top-0 left-0 bottom-0 w-6 z-50 group transition-all duration-200"
+          className="fixed top-0 left-0 bottom-0 w-6 z-[109] group transition-all duration-200"
         >
-          {/* 视觉反馈：默认显示极细的渐变高亮条，鼠标靠近时扩展到全宽 */}
+          {/* 边缘微弱渐变感应条 */}
           <div className="absolute top-0 left-0 w-0.5 h-full bg-gradient-to-r from-white/40 to-transparent group-hover:w-6 group-hover:from-white/50 transition-all duration-300 ease-out" />
         </div>
       )}
@@ -183,7 +190,6 @@ function SidebarComponent({
             </div>
           </nav>
 
-          {/* 底部固定按钮 */}
           <div className="p-4 border-t border-neutral-200/50 mt-auto">
             <button
               onClick={toggleSidebarPin}

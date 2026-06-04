@@ -1,3 +1,6 @@
+/* ================================================
+   FILE: src/index.css
+   ================================================ */
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
@@ -43,7 +46,29 @@ body {
 .font-human { font-family: 'Newsreader', serif; }
 .font-mono { font-family: 'JetBrains Mono', monospace; }
 
-::-webkit-scrollbar { display: none; }
+/* 🌟 全局精致自定义滚动条（彻底美化主视口和侧边栏滚动条） */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+  display: block;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(28, 28, 26, 0.08);
+  border-radius: 99px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.3s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(197, 83, 69, 0.35); /* 悬浮时优雅的朱砂红 */
+  border-radius: 99px;
+}
+
+/* 隐藏部分面板的多余滚动条 */
+.scroll-hide::-webkit-scrollbar { display: none; }
 
 .spring-click { transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; }
 .spring-click:hover { transform: translateY(-2px) scale(1.01); }
@@ -105,36 +130,24 @@ body {
 }
 .cm-line { padding-bottom: 1em !important; }
 
-/* 🌟 重构：双链学术级纯净悬浮动效 */
-.cm-link, .cm-url {
-  color: var(--bh-red) !important;
-  position: relative;
-  text-decoration: none !important;
-  cursor: pointer;
-  padding: 0 2px;
-  border-radius: 3px;
-  transition: background-color 0.4s ease, color 0.4s ease;
-}
-
-.cm-link::after, .cm-url::after {
+/* WYSIWYG 双链卡片无缝物理下划线动效 */
+.cm-wysiwyg-link::after {
   content: '';
   position: absolute;
   bottom: 0; left: 0;
-  width: 100%; height: 1.5px;
+  width: 100%; height: 1px;
   background-color: var(--bh-red);
-  opacity: 0.35;
+  opacity: 0.3;
   transform-origin: left;
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
 }
-
-.cm-link:hover, .cm-url:hover {
+.cm-wysiwyg-link:hover {
   background-color: rgba(197, 83, 69, 0.08) !important;
   color: #A33A2E !important;
 }
-
-.cm-link:hover::after, .cm-url:hover::after {
+.cm-wysiwyg-link:hover::after {
   opacity: 0.8;
-  transform: scaleY(1.8);
+  transform: scaleY(2);
 }
 
 .quick-capture {

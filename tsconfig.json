@@ -31,14 +31,20 @@
       "@/layout/*": [
         "./src/layout/*"
       ],
-      "@/store/*": [
-        "./src/store/*"
+      "@/stores/*": [
+        "./src/stores/*"
+      ],
+      "@/db/*": [
+        "./src/db/*"
+      ],
+      "@/hooks/*": [
+        "./src/hooks/*"
       ],
       "@/types": [
-        "./src/@types/index"
+        "./src/types/index"
       ],
       "@/types/*": [
-        "./src/@types/*"
+        "./src/types/*"
       ],
       "@/data/*": [
         "./src/data/*"
@@ -52,6 +58,19 @@
     "strictFunctionTypes": true,
     "strictPropertyInitialization": true,
     "noImplicitThis": true,
-    "alwaysStrict": true
-  }
+    "alwaysStrict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
