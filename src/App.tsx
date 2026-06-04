@@ -35,7 +35,6 @@ export default function App() {
 
       <Sidebar 
         isCollapsed={isSidebarActiveCollapsed} 
-        onToggle={() => {}}
         openPage={setActivePage}
         openCommandPalette={() => setCommandPaletteOpen(true)}
         setStatus={setStatus}

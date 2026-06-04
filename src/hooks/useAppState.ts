@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 
 export function useAppState() {
   const [activePage, setActivePage] = useState('project');
-  const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [isZenMode, setZenMode] = useState(false);
   const [isCommandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -24,7 +23,8 @@ export function useAppState() {
 
   useEffect(() => {
     setStatus('System active.');
-  }, [setStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -35,16 +35,10 @@ export function useAppState() {
       if (e.key === 'Escape') {
         setCommandPaletteOpen(false);
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        if (quickCaptureText.trim()) {
-          setStatus('Captured: ' + quickCaptureText);
-          setQuickCaptureText('');
-        }
-      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [quickCaptureText, setStatus]);
+  }, []);
 
   useEffect(() => {
     if (isZenMode) {
@@ -56,7 +50,7 @@ export function useAppState() {
 
   const handleSidebarMouseEnter = useCallback(() => {
     if (isZenMode) return;
-    if (document.querySelector('.dragging-active')) return;
+    if (document.body.classList.contains('dragging-active')) return;
 
     if (sidebarLeaveTimer.current) {
       clearTimeout(sidebarLeaveTimer.current);
@@ -66,54 +60,30 @@ export function useAppState() {
   }, [isZenMode]);
 
   const handleSidebarMouseLeave = useCallback(() => {
-    if (activePage === 'editor') {
-      sidebarLeaveTimer.current = window.setTimeout(() => {
-        setIsSidebarHovered(false);
-      }, 600);
-    } else {
+    sidebarLeaveTimer.current = window.setTimeout(() => {
       setIsSidebarHovered(false);
-    }
-  }, [activePage]);
+    }, 400);
+  }, []);
 
   const handleOpenPage = useCallback((page: string) => {
     setActivePage(page);
-    if (page === 'project') {
-      setZenMode(false);
-      setIsSidebarHovered(false);
-    }
-    if (page === 'editor') {
-      setIsSidebarHovered(true);
-    }
+    setZenMode(false);
+    document.body.classList.remove('zen-active');
+    setIsSidebarHovered(false);
   }, []);
 
-  const getSidebarCollapsedState = useCallback(() => {
-    if (activePage === 'editor') {
-      return !isSidebarHovered;
-    }
-    return isSidebarCollapsed;
-  }, [activePage, isSidebarHovered, isSidebarCollapsed]);
-
   const getMarginClass = useCallback(() => {
-    if (activePage === 'editor') return 'ml-4';
-    return 'ml-[272px]';
-  }, [activePage]);
+    return 'ml-4';
+  }, []);
 
   const isSidebarActiveCollapsed = useMemo(() => {
-    if (activePage === 'editor') {
-      return !isSidebarHovered;
-    }
-    return isSidebarCollapsed;
-  }, [activePage, isSidebarHovered, isSidebarCollapsed]);
-
-  const isZenActive = useMemo(() => {
-    return activePage === 'editor' && isSidebarActiveCollapsed;
-  }, [activePage, isSidebarActiveCollapsed]);
+    if (isZenMode) return true;
+    return !isSidebarHovered;
+  }, [isSidebarHovered, isZenMode]);
 
   return {
     activePage,
     setActivePage: handleOpenPage,
-    isSidebarCollapsed,
-    setSidebarCollapsed,
     isSidebarHovered,
     setIsSidebarHovered,
     isZenMode,
@@ -127,9 +97,7 @@ export function useAppState() {
     setStatus,
     handleSidebarMouseEnter,
     handleSidebarMouseLeave,
-    getSidebarCollapsedState,
     getMarginClass,
-    isSidebarActiveCollapsed,
-    isZenActive
+    isSidebarActiveCollapsed
   };
 }

@@ -1,3 +1,4 @@
+import { useState, memo } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import type React from 'react';
 
@@ -20,6 +21,13 @@ export function EditorContent({
   onLinkHover,
   onLinkLeave
 }: EditorContentProps) {
+  const [documentText, setDocumentText] = useState('');
+
+  const handleContentChange = (e: React.SyntheticEvent<HTMLParagraphElement>) => {
+    const target = e.target as HTMLParagraphElement;
+    setDocumentText(target.textContent || '');
+  };
+
   return (
     <main className="flex-1 flex flex-col h-full overflow-y-auto scroll-hide">
       <header className="h-20 flex items-center justify-between px-12 z-10 shrink-0 sticky top-0 bg-gradient-to-b from-[var(--bg-canvas)] to-transparent">
@@ -64,13 +72,13 @@ export function EditorContent({
           </div>
 
           <div className="space-y-12 animate-in fade-in duration-150">
-            <p className="prose-reading font-human outline-none" contentEditable suppressContentEditableWarning>
+            <p className="prose-reading font-human outline-none" contentEditable suppressContentEditableWarning onChange={handleContentChange}>
               This space maps the foundational structures of topological spaces. It bridges the intuitive notion of <span className="wiki-link font-bold" onMouseEnter={(e) => onLinkHover(e, 'compactness', 0)} onMouseLeave={() => onLinkLeave('compactness')}>closeness</span> without relying on strict metrics. The essence of compactness captures the idea that a space is, in some sense, "not too large" or "manageable", even if it contains infinitely many points.
             </p>
-            <p className="prose-reading font-human outline-none" contentEditable suppressContentEditableWarning>
+            <p className="prose-reading font-human outline-none" contentEditable suppressContentEditableWarning onChange={handleContentChange}>
               A topological space is a set endowed with a structure, called a <em>topology</em>, which allows defining continuous deformation of subspaces. Generalizing the <span className="wiki-link font-bold" onMouseEnter={(e) => onLinkHover(e, 'heine-borel', 0)} onMouseLeave={() => onLinkLeave('heine-borel')}>Heine–Borel</span> theorem requires us to move beyond Euclidean constraints.
             </p>
-            <p className="prose-reading font-human outline-none" contentEditable suppressContentEditableWarning>
+            <p className="prose-reading font-human outline-none" contentEditable suppressContentEditableWarning onChange={handleContentChange}>
               This brings us to <span className="wiki-link font-bold" onMouseEnter={(e) => onLinkHover(e, 'tychonoff', 0)} onMouseLeave={() => onLinkLeave('tychonoff')}>Tychonoff's Theorem</span>, which extends compactness to arbitrary products — a deep result relying on the Axiom of Choice.
             </p>
           </div>
@@ -85,7 +93,7 @@ export function EditorContent({
   );
 }
 
-function EditorSidebar({ isZenMode, activeTab }: { isZenMode: boolean; activeTab: 'context' | 'annotations' }) {
+const EditorSidebar = memo(function EditorSidebar({ isZenMode, activeTab }: { isZenMode: boolean; activeTab: 'context' | 'annotations' }) {
   return (
     <aside 
       id="editor-context-panel" 
@@ -113,4 +121,6 @@ function EditorSidebar({ isZenMode, activeTab }: { isZenMode: boolean; activeTab
       )}
     </aside>
   );
-}
+});
+
+export default memo(EditorContent);

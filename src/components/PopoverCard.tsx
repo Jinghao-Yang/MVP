@@ -73,7 +73,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = ({
     if (cardRef.current) {
       cardRef.current.classList.remove('dragging-active');
       cardRef.current.style.backdropFilter = '';
-      cardRef.current.style.webkitBackdropFilter = '';
+      (cardRef.current.style as unknown as { webkitBackdropFilter: string }).webkitBackdropFilter = '';
       cardRef.current.style.background = '';
       cardRef.current.style.transition = '';
     }
@@ -167,7 +167,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = ({
             if (cardRef.current) {
               cardRef.current.classList.add('dragging-active');
               cardRef.current.style.backdropFilter = 'none';
-              cardRef.current.style.webkitBackdropFilter = 'none';
+              (cardRef.current.style as unknown as { webkitBackdropFilter: string }).webkitBackdropFilter = 'none';
               cardRef.current.style.background = 'rgba(255, 255, 255, 0.98)';
               cardRef.current.style.transition = 'none'; 
             }
@@ -212,7 +212,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = ({
               <span 
                 className="wiki-link font-bold" 
                 onMouseEnter={(e) => onLinkHover(e, 'compactness', popup.depth)} 
-                onLinkLeave={() => onLinkLeave('compactness')}
+                onMouseLeave={() => onLinkLeave('compactness')}
               >
                 compact
               </span>
@@ -224,7 +224,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = ({
               <span 
                 className="wiki-link font-bold" 
                 onMouseEnter={(e) => onLinkHover(e, 'axiom-of-choice', popup.depth)} 
-                onLinkLeave={() => onLinkLeave('axiom-of-choice')}
+                onMouseLeave={() => onLinkLeave('axiom-of-choice')}
               >
                 Axiom of Choice
               </span>
@@ -253,7 +253,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = ({
         if (cardRef.current) {
           cardRef.current.classList.add('dragging-active');
           cardRef.current.style.backdropFilter = 'none';
-          cardRef.current.style.webkitBackdropFilter = 'none';
+          (cardRef.current.style as unknown as { webkitBackdropFilter: string }).webkitBackdropFilter = 'none';
           cardRef.current.style.background = 'rgba(255, 255, 255, 0.98)';
           cardRef.current.style.transition = 'none';
         }

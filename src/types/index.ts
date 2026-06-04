@@ -1,3 +1,6 @@
+/* ================================================
+   FILE: src/types/index.ts
+   ================================================ */
 export interface PopupData {
   id: string;
   title: string;
@@ -11,6 +14,8 @@ export interface PopupData {
   depth: number;
   isPinned: boolean;
   isMinimized: boolean;
+  history?: string[];      // ⚡ 新增：Popovers 专属历史记录
+  historyIndex?: number;   // ⚡ 新增：当前浏览指向位置
 }
 
 export interface WikiEntry {
@@ -44,7 +49,7 @@ export interface PopoverCardProps {
   onSizeChange: (w: number, h: number) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  onLinkHover: (e: React.MouseEvent<HTMLSpanElement, MouseEvent>, wikiId: string, depth: number) => void;
+  onLinkHover: (e: React.MouseEvent<HTMLSpanElement>, wikiId: string, depth: number) => void;
   onLinkLeave: (wikiId: string) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
@@ -75,4 +80,5 @@ export interface EditorSidebarProps {
   activeTab: EditorSidebarTab;
   onTabChange: (tab: EditorSidebarTab) => void;
   setStatus: (status: string) => void;
+  documentText?: string;
 }

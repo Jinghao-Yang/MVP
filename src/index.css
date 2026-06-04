@@ -1,3 +1,6 @@
+/* ================================================
+   FILE: src/index.css
+   ================================================ */
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
@@ -7,21 +10,17 @@
   --text-secondary: #4A4A46;
   --text-muted: #9E9E98;
 
-  /* 包豪斯低饱和色彩系统 (Bauhaus Muted Palette) */
   --bh-red: #C55345;
   --bh-blue: #5B7B9A;
   --bh-yellow: #D1A34D;
   --bh-green: #708A74;
 
-  /* 隐藏式 UI 的交互过渡线 */
   --ui-hidden: transparent;
   --ui-hover: rgba(28, 28, 26, 0.12);
 
-  /* 高精 SaaS 悬浮阴影系统 */
-  --shadow-glass: 0 12px 48px -12px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0,0,0,0.02);
+  --shadow-glass: 0 12px 48px -12px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0,0,0,0.03);
   --shadow-card: 0 8px 24px -8px rgba(0,0,0,0.04);
   
-  /* 物理弹簧动效曲线 */
   --spring-bounce: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   --spring-smooth: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 
@@ -35,13 +34,12 @@ body {
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 13.5px;
+  font-size: 14px; /* 提高基础字号 */
   
-  /* 静态学术网格 */
   background-size: 40px 40px, 40px 40px;
   background-image:
-      linear-gradient(to right, rgba(28, 28, 26, 0.025) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(28, 28, 26, 0.025) 1px, transparent 1px);
+      linear-gradient(to right, rgba(28, 28, 26, 0.02) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(28, 28, 26, 0.02) 1px, transparent 1px);
 }
 
 .font-sys { font-family: 'Space Grotesk', sans-serif; }
@@ -50,40 +48,35 @@ body {
 
 ::-webkit-scrollbar { display: none; }
 
-/* 物理缓入 */
 .spring-click { transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; }
 .spring-click:hover { transform: translateY(-2px) scale(1.01); }
 .spring-click:active { transform: translateY(1px) scale(0.96); transition: transform 0.15s ease; }
 
+/* ⚡ 【物理层级升级】：白色半透明内描边 + 极低透明度黑色阴影描边 + 微微立体阴影 */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: var(--shadow-glass);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 
+    var(--shadow-glass), 
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(28, 28, 26, 0.03);
   border-radius: 0px;
 }
 
 .glass-panel-deep {
-  background: rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(36px);
-  -webkit-backdrop-filter: blur(36px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  border-top: 1px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 
+    0 24px 64px -12px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 0 0 1px rgba(28, 28, 26, 0.04);
   border-radius: 0px;
 }
 
-/* 拖拽切断 */
-.glass-panel.dragging-active {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  background: rgba(255, 255, 255, 0.98) !important;
-  box-shadow: none !important;
-  transition: none !important;
-}
-
-/* 隐藏式 UI 交互线 */
 .hover-ui {
   border: 1px solid var(--ui-hidden);
   background: transparent;
@@ -100,12 +93,10 @@ body {
   backdrop-filter: blur(8px);
   border: 1px solid var(--ui-hidden);
   box-shadow: var(--shadow-card);
-  /* ⚡ 【体验优化】：主面板的学术历史卡片应用 2.0s 极致舒适的重阻尼缓动 */
   transition: transform 2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.8s ease, background-color 0.8s ease, box-shadow 0.8s ease;
   cursor: pointer;
   border-radius: 0px;
 }
-/* ⚡ 【体验优化】：Hover 时仅有微幅放大（1.03），且无任何位移 */
 .brutal-card:hover {
   border-color: var(--ui-hover);
   transform: scale(1.03);
@@ -113,21 +104,18 @@ body {
   background: rgba(255, 255, 255, 0.9);
 }
 
-/* ⚡ 【生产力看板专精优化】：
-   看板（Pipeline）需要高频操作，避开 2.0s 慢速动画。
-   提供 180ms 的极速物理响应（Compositing Only），手感极度干练、爽快！ */
+/* ⚡ 【生产力看板】180ms 极速响应 */
 .kanban-column {
   transition: background-color 180ms ease, border-color 180ms ease !important;
 }
 .kanban-column:hover {
-  transform: none !important; /* 保持看板列在物理上的绝对锚定，防止晃眼 */
+  transform: none !important;
 }
 .kanban-card {
-  /* 180ms 极速缓动 */
   transition: transform 180ms cubic-bezier(0.25, 1, 0.5, 1), border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease !important;
 }
 .kanban-card:hover {
-  transform: scale(1.02) !important; /* 看板卡片采用极其微弱、短促的 1.02 放大，不位移 */
+  transform: scale(1.02) !important;
 }
 
 /* 侧边栏过渡 */
@@ -198,7 +186,7 @@ body {
   border-bottom: 1px dashed rgba(197, 83, 69, 0.4);
   cursor: pointer;
   padding: 0 4px;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
   position: relative;
   background: transparent;
 }
@@ -207,12 +195,37 @@ body {
   border-bottom: 1px solid var(--bh-red);
 }
 
+/* ⚡ 【微动效升级】：双链加载中 shimer 流转光效 */
+.wiki-link-loading {
+  position: relative;
+  color: var(--bh-blue);
+  animation: link-pulse 1.5s infinite alternate ease-in-out;
+}
+.wiki-link-loading::after {
+  content: '';
+  position: absolute;
+  left: 0; bottom: -1px;
+  width: 100%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--bh-blue), transparent);
+  background-size: 200% 100%;
+  animation: border-flow 1.5s infinite linear;
+}
+
+@keyframes link-pulse {
+  0% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+@keyframes border-flow {
+  0% { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+
 /* 正文大字号化排版 */
 .prose-reading {
   margin-bottom: 2em;
   line-height: 1.85;
   color: var(--text-secondary);
-  font-size: 1.35rem;
+  font-size: 1.4rem; /* 稍微提升字号，更显典雅阅读感 */
 }
 
 /* 看板列过渡时间 */
@@ -229,9 +242,9 @@ body {
   transform: scale(1.01);
 }
 .stage-column .column-header {
-  font-size: 10px;
+  font-size: 11px; /* 禁止 9px/10px 等极小字号 */
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: var(--text-muted);
   padding-bottom: 0.5rem;
   margin-bottom: 1rem;
@@ -272,14 +285,14 @@ body {
 }
 .quick-capture input::placeholder { color: var(--text-muted); opacity: 0.6; }
 
-body.zen-active .sidebar { transform: translateX(calc(-100% - 32px)); }
+/* ⚡ 【Zen Mode 终极沉浸隔离】 */
+body.zen-active .sidebar { transform: translateX(calc(-100% - 32px)) !important; pointer-events: none !important; }
 body.zen-active .main-content { margin-left: 16px !important; }
 body.zen-active #editor-context-panel { transform: translateX(120%) !important; opacity: 0 !important; pointer-events: none !important; }
 body.zen-active .quick-capture { transform: translate(-50%, 150%); }
 
 .scroll-hide::-webkit-scrollbar { display: none; }
 
-/* 1.5s 极长阻尼 Expo 缓入曲线（去除 scale 和 blur） */
 @keyframes popup-inner-entrance {
   from {
     opacity: 0;
@@ -294,9 +307,9 @@ body.zen-active .quick-capture { transform: translate(-50%, 150%); }
   animation: popup-inner-entrance 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Changelog 一体化物理动画 */
+/* Changelog 一体化物理动画 ⚡ 改为 1.2s 体验 */
 .changelog-node {
-  transition: transform 2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 .changelog-node:hover {
   transform: translateY(-8px);
@@ -305,10 +318,14 @@ body.zen-active .quick-capture { transform: translate(-50%, 150%); }
   border-color: var(--ui-hover);
   box-shadow: var(--shadow-glass);
   background: #FFFFFF;
-  transform: none !important; /* 强制拦截子卡片的二次独立位移 */
+  transform: none !important;
 }
 
-/* 板块切换快速转场动画 */
+/* Gantt 保持 2s 体验不变 */
+.gantt-item {
+  transition: transform 2.0s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 @keyframes pane-slide {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
