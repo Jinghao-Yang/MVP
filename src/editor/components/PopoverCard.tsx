@@ -3,7 +3,7 @@ import { Pin, Minimize2 } from 'lucide-react';
 import { motion, useDragControls } from 'motion/react';
 import type { PopoverCardProps } from '@/types';
 import { usePopupStore } from '@/stores/popup-store';
-import { useDraggablePopup } from '@/hooks/useDraggablePopup';
+import { useDraggablePopup } from './useDraggablePopup';
 
 export const PopoverCard: React.FC<PopoverCardProps> = React.memo(
   ({

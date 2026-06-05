@@ -1,11 +1,12 @@
 /* ================================================
    FILE: src/editor/EditorContent.tsx
    ================================================ */
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useReducer } from 'react';
 import { Eye, EyeOff, ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePopupStore, type PopupState } from '@/stores/popup-store';
 import { useEditorStore, type EditorState } from '@/stores/editor-store';
 import { useUiStore } from '@/stores/ui-store';
+import { documentService } from '@/services/document-service';
 import {
   wysiwygLinkExtensions,
   wysiwygLinkExtension,
@@ -21,18 +22,69 @@ interface EditorContentProps {
   onOpenPage: (page: string) => void;
 }
 
+// ================================================
+// 历史导航 Reducer
+// ================================================
+
+interface HistoryState {
+  documentHistory: string[];
+  historyIndex: number;
+}
+
+type HistoryAction =
+  | { type: 'LOAD_WIKI'; wikiId: string }
+  | { type: 'GO_BACK' }
+  | { type: 'GO_FORWARD' };
+
+const MAX_HISTORY_LENGTH = 50;
+
+const historyReducer = (state: HistoryState, action: HistoryAction): HistoryState => {
+  switch (action.type) {
+    case 'LOAD_WIKI': {
+      const newHistory = state.documentHistory.slice(0, state.historyIndex + 1);
+      if (newHistory[newHistory.length - 1] !== action.wikiId) {
+        newHistory.push(action.wikiId);
+      }
+      const trimmedHistory =
+        newHistory.length > MAX_HISTORY_LENGTH ? newHistory.slice(-MAX_HISTORY_LENGTH) : newHistory;
+      return {
+        documentHistory: trimmedHistory,
+        historyIndex: trimmedHistory.length - 1,
+      };
+    }
+    case 'GO_BACK':
+      if (state.historyIndex > 0) {
+        return { ...state, historyIndex: state.historyIndex - 1 };
+      }
+      return state;
+    case 'GO_FORWARD':
+      if (state.historyIndex < state.documentHistory.length - 1) {
+        return { ...state, historyIndex: state.historyIndex + 1 };
+      }
+      return state;
+    default:
+      return state;
+  }
+};
+
 export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorContentProps) {
+  const [historyState, dispatchHistory] = useReducer(historyReducer, {
+    documentHistory: [],
+    historyIndex: -1,
+  });
+
   const setDocumentText = useEditorStore((state: EditorState) => state.setDocumentText);
   const documentText = useEditorStore((state: EditorState) => state.documentText);
   const handleMouseEnter = usePopupStore((state: PopupState) => state.handleMouseEnter);
   const handleMouseLeave = usePopupStore((state: PopupState) => state.handleMouseLeave);
-  const loadWikiContent = useEditorStore((state: EditorState) => state.loadWikiContent);
-  const goBack = useEditorStore((state: EditorState) => state.goBack);
-  const goForward = useEditorStore((state: EditorState) => state.goForward);
-  const canGoBack = useEditorStore((state: EditorState) => state.canGoBack);
-  const canGoForward = useEditorStore((state: EditorState) => state.canGoForward);
-  const currentWikiId = useEditorStore((state: EditorState) => state.currentWikiId);
   const setStatus = useUiStore((state) => state.setStatus);
+
+  const canGoBack = useCallback(() => historyState.historyIndex > 0, [historyState.historyIndex]);
+  const canGoForward = useCallback(
+    () => historyState.historyIndex < historyState.documentHistory.length - 1,
+    [historyState.historyIndex, historyState.documentHistory.length]
+  );
+  const currentWikiId = historyState.documentHistory[historyState.historyIndex] || null;
 
   const debouncedSave = useDebouncedCallback(async (text: string) => {
     try {
@@ -43,6 +95,54 @@ export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorCont
       setStatus('Failed to auto-save. Please check storage.');
     }
   }, 500);
+
+  // ================================================
+  // 历史导航方法
+  // ================================================
+
+  const loadWikiContent = useCallback(async (wikiId: string) => {
+    try {
+      const data = await documentService.getDocument(wikiId);
+      if (data) {
+        setDocumentText(data.content);
+        dispatchHistory({ type: 'LOAD_WIKI', wikiId });
+      }
+    } catch (error) {
+      console.error('Failed to load wiki content:', error);
+    }
+  }, [setDocumentText]);
+
+  const goBack = useCallback(async () => {
+    if (!canGoBack()) return;
+
+    try {
+      const newIndex = historyState.historyIndex - 1;
+      const wikiId = historyState.documentHistory[newIndex];
+      const data = await documentService.getDocument(wikiId);
+      if (data) {
+        setDocumentText(data.content);
+        dispatchHistory({ type: 'GO_BACK' });
+      }
+    } catch (error) {
+      console.error('Failed to navigate back:', error);
+    }
+  }, [historyState.historyIndex, historyState.documentHistory, canGoBack, setDocumentText]);
+
+  const goForward = useCallback(async () => {
+    if (!canGoForward()) return;
+
+    try {
+      const newIndex = historyState.historyIndex + 1;
+      const wikiId = historyState.documentHistory[newIndex];
+      const data = await documentService.getDocument(wikiId);
+      if (data) {
+        setDocumentText(data.content);
+        dispatchHistory({ type: 'GO_FORWARD' });
+      }
+    } catch (error) {
+      console.error('Failed to navigate forward:', error);
+    }
+  }, [historyState.historyIndex, historyState.documentHistory, canGoForward, setDocumentText]);
 
   // ================================================
   // beforeunload 最后防线
@@ -86,7 +186,7 @@ export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorCont
         handleMouseLeave('any');
       }
     },
-    [handleMouseEnter, handleMouseLeave, loadWikiContent]
+    [handleMouseEnter, handleMouseLeave, loadWikiContent, setDocumentText]
   );
 
   const linkHoverExtension = wysiwygLinkExtension(handleLinkEvent);

@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type React from 'react';
 import type { PopupData } from '@/types';
 import { getDocument } from '@/services/document-service';
@@ -135,88 +136,214 @@ export interface PopupState {
 }
 
 // ============================================================================
+// 弹窗固定元数据类型
+// ============================================================================
+
+export interface PinnedPopoverMetadata {
+  id: string;
+  isPinned: boolean;
+  isMinimized: boolean;
+}
+
+// ============================================================================
 // Popup Store 实现
 // ============================================================================
 
-export const usePopupStore = create<PopupState>()((set, get) => ({
-  // 初始状态
-  popups: [],
-  loadingWikiId: null,
-  activePopupId: null,
-  isUserDragging: false,
-  recentlyClosedPopups: [],
+export const usePopupStore = create<PopupState>()(
+  persist(
+    (set, get) => ({
+      // 初始状态
+      popups: [],
+      loadingWikiId: null,
+      activePopupId: null,
+      isUserDragging: false,
+      recentlyClosedPopups: [],
 
-  // Actions
-  setPopups: (popups) => set({ popups }),
+      // Actions
+      setPopups: (popups) => set({ popups }),
 
-  bringToFront: (id) => set({ activePopupId: id }),
+      bringToFront: (id) => set({ activePopupId: id }),
 
-  togglePin: (id) =>
-    set((state) => ({
-      popups: state.popups.map((p) => (p.id === id ? { ...p, isPinned: !p.isPinned } : p)),
-    })),
+      togglePin: (id) =>
+        set((state) => ({
+          popups: state.popups.map((p) => (p.id === id ? { ...p, isPinned: !p.isPinned } : p)),
+        })),
 
-  toggleMinimize: (id) =>
-    set((state) => ({
-      popups: state.popups.map((p) => (p.id === id ? { ...p, isMinimized: !p.isMinimized } : p)),
-    })),
+      toggleMinimize: (id) =>
+        set((state) => ({
+          popups: state.popups.map((p) => (p.id === id ? { ...p, isMinimized: !p.isMinimized } : p)),
+        })),
 
-  closePopup: (id) =>
-    set((state) => {
-      const popupToClose = state.popups.find((p) => p.id === id);
-      if (!popupToClose) {
-        return { popups: state.popups.filter((p) => p.id !== id) };
-      }
-      const newRecentlyClosed = [
-        { popup: popupToClose, closedAt: Date.now() },
-        ...state.recentlyClosedPopups.filter((rc) => rc.popup.id !== id),
-      ].slice(0, 5);
+      closePopup: (id) =>
+        set((state) => {
+          const popupToClose = state.popups.find((p) => p.id === id);
+          if (!popupToClose) {
+            return { popups: state.popups.filter((p) => p.id !== id) };
+          }
+          const newRecentlyClosed = [
+            { popup: popupToClose, closedAt: Date.now() },
+            ...state.recentlyClosedPopups.filter((rc) => rc.popup.id !== id),
+          ].slice(0, 5);
 
-      return {
-        popups: state.popups.filter((p) => p.id !== id),
-        recentlyClosedPopups: newRecentlyClosed,
-      };
-    }),
+          return {
+            popups: state.popups.filter((p) => p.id !== id),
+            recentlyClosedPopups: newRecentlyClosed,
+          };
+        }),
 
-  restorePopup: (id) =>
-    set((state) => {
-      const closedPopup = state.recentlyClosedPopups.find((rc) => rc.popup.id === id);
-      if (!closedPopup) return state;
-      return {
-        popups: [...state.popups, { ...closedPopup.popup, isMinimized: false }],
-        recentlyClosedPopups: state.recentlyClosedPopups.filter((rc) => rc.popup.id !== id),
-        activePopupId: id,
-      };
-    }),
+      restorePopup: (id) =>
+        set((state) => {
+          const closedPopup = state.recentlyClosedPopups.find((rc) => rc.popup.id === id);
+          if (!closedPopup) return state;
+          return {
+            popups: [...state.popups, { ...closedPopup.popup, isMinimized: false }],
+            recentlyClosedPopups: state.recentlyClosedPopups.filter((rc) => rc.popup.id !== id),
+            activePopupId: id,
+          };
+        }),
 
-  setLoadingWikiId: (id) => set({ loadingWikiId: id }),
+      setLoadingWikiId: (id) => set({ loadingWikiId: id }),
 
-  setIsUserDragging: (dragging) => set({ isUserDragging: dragging }),
+      setIsUserDragging: (dragging) => set({ isUserDragging: dragging }),
 
-  // 弹窗交互方法
-  handleMouseEnter: (e: MouseEvent | React.MouseEvent<Element>, wikiId: string, depth = 0) => {
-    const state = get();
-    if (state.isUserDragging) return;
+      // 弹窗交互方法
+      handleMouseEnter: (e: MouseEvent | React.MouseEvent<Element>, wikiId: string, depth = 0) => {
+        const state = get();
+        if (state.isUserDragging) return;
 
-    const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
-    if (isTouch) return;
+        const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+        if (isTouch) return;
 
-    timerManager.clearTimer(wikiId);
-    timerManager.clearTimer(`close-${wikiId}`);
+        timerManager.clearTimer(wikiId);
+        timerManager.clearTimer(`close-${wikiId}`);
 
-    set({ loadingWikiId: wikiId });
+        set({ loadingWikiId: wikiId });
 
-    const clientX = e.clientX;
-    const clientY = e.clientY;
+        const clientX = e.clientX;
+        const clientY = e.clientY;
 
-    timerManager.setTimer(
-      wikiId,
-      async () => {
+        timerManager.setTimer(
+          wikiId,
+          async () => {
+            set({ loadingWikiId: null });
+
+            const currentPopups = get().popups;
+            if (currentPopups.some((p) => p.id === wikiId)) {
+              set({ activePopupId: wikiId });
+              return;
+            }
+
+            const docData = await getDocument(wikiId);
+            const savedState = await db.popoverStates.get(wikiId);
+
+            if (docData) {
+              let adjustedX = savedState?.x ?? clientX + window.scrollX;
+              let adjustedY = savedState?.y ?? clientY + window.scrollY + 20;
+              const defaultWidth = savedState?.width ?? DEFAULT_POPUP_CONFIG.width;
+              const defaultHeight = savedState?.height ?? DEFAULT_POPUP_CONFIG.height;
+
+              if (!savedState) {
+                adjustedX = adjustedX + depth * 25;
+                adjustedY = adjustedY + depth * 25;
+
+                if (adjustedX + defaultWidth > window.innerWidth) {
+                  adjustedX = window.innerWidth - defaultWidth - 24;
+                }
+                if (adjustedY + defaultHeight > window.innerHeight) {
+                  adjustedY = clientY + window.scrollY - defaultHeight - 20;
+                }
+              } else {
+                const boundedPosition = ensureWithinBounds(adjustedX, adjustedY);
+                adjustedX = boundedPosition.x;
+                adjustedY = boundedPosition.y;
+              }
+
+              const newPopup: PopupData = {
+                id: wikiId,
+                title: docData.title,
+                excerpt: docData.content.substring(0, 180) + '...',
+                badge: docData.badge,
+                badgeClass: docData.badgeClass,
+                x: adjustedX,
+                y: adjustedY,
+                width: defaultWidth,
+                height: defaultHeight,
+                depth: Math.min(depth + 1, 5),
+                isPinned: false,
+                isMinimized: false,
+                history: [wikiId],
+                historyIndex: 0,
+              };
+
+              set({
+                popups: [...currentPopups.filter((p) => p.isPinned || p.depth <= depth), newPopup],
+                activePopupId: wikiId,
+              });
+
+              if (!savedState) {
+                await db.popoverStates.put({
+                  id: wikiId,
+                  x: adjustedX,
+                  y: adjustedY,
+                  width: defaultWidth,
+                  height: defaultHeight,
+                });
+              }
+            }
+          },
+          220
+        );
+      },
+
+      handleMouseLeave: (wikiId: string) => {
         set({ loadingWikiId: null });
+        const state = get();
+        if (state.isUserDragging) return;
+
+        timerManager.clearTimer(wikiId);
+
+        if (wikiId === 'any') {
+          timerManager.clearAllOpenTimers();
+          return;
+        }
+
+        timerManager.setTimer(
+          `close-${wikiId}`,
+          () => {
+            set((state) => ({
+              popups: state.popups.filter((p) =>
+                p.id === wikiId && p.isPinned ? true : p.id !== wikiId
+              ),
+            }));
+          },
+          320
+        );
+      },
+
+      handlePopoverMouseEnter: (wikiId: string) => {
+        const state = get();
+        if (state.isUserDragging) return;
+        timerManager.clearTimer(`close-${wikiId}`);
+      },
+
+      handlePopoverMouseLeave: (wikiId: string) => {
+        get().handleMouseLeave(wikiId);
+      },
+
+      handleClick: async (wikiId: string, depth = 0) => {
+        const state = get();
+        if (state.isUserDragging) return;
+
+        timerManager.clearTimer(wikiId);
+        timerManager.clearTimer(`close-${wikiId}`);
+
+        set({ loadingWikiId: wikiId });
 
         const currentPopups = get().popups;
-        if (currentPopups.some((p) => p.id === wikiId)) {
-          set({ activePopupId: wikiId });
+        const existingPopup = currentPopups.find((p) => p.id === wikiId);
+
+        if (existingPopup) {
+          set({ loadingWikiId: null, activePopupId: wikiId });
           return;
         }
 
@@ -224,10 +351,11 @@ export const usePopupStore = create<PopupState>()((set, get) => ({
         const savedState = await db.popoverStates.get(wikiId);
 
         if (docData) {
-          let adjustedX = savedState?.x ?? clientX + window.scrollX;
-          let adjustedY = savedState?.y ?? clientY + window.scrollY + 20;
           const defaultWidth = savedState?.width ?? DEFAULT_POPUP_CONFIG.width;
           const defaultHeight = savedState?.height ?? DEFAULT_POPUP_CONFIG.height;
+
+          let adjustedX = savedState?.x ?? DEFAULT_POPUP_CONFIG.offsetX + depth * 30;
+          let adjustedY = savedState?.y ?? DEFAULT_POPUP_CONFIG.offsetY + depth * 30;
 
           if (!savedState) {
             adjustedX = adjustedX + depth * 25;
@@ -237,8 +365,12 @@ export const usePopupStore = create<PopupState>()((set, get) => ({
               adjustedX = window.innerWidth - defaultWidth - 24;
             }
             if (adjustedY + defaultHeight > window.innerHeight) {
-              adjustedY = clientY + window.scrollY - defaultHeight - 20;
+              adjustedY = window.innerHeight - defaultHeight - 24;
             }
+          } else {
+            const boundedPosition = ensureWithinBounds(adjustedX, adjustedY);
+            adjustedX = boundedPosition.x;
+            adjustedY = boundedPosition.y;
           }
 
           const newPopup: PopupData = {
@@ -261,6 +393,7 @@ export const usePopupStore = create<PopupState>()((set, get) => ({
           set({
             popups: [...currentPopups.filter((p) => p.isPinned || p.depth <= depth), newPopup],
             activePopupId: wikiId,
+            loadingWikiId: null,
           });
 
           if (!savedState) {
@@ -272,160 +405,61 @@ export const usePopupStore = create<PopupState>()((set, get) => ({
               height: defaultHeight,
             });
           }
+        } else {
+          set({ loadingWikiId: null });
         }
       },
-      220
-    );
-  },
 
-  handleMouseLeave: (wikiId: string) => {
-    set({ loadingWikiId: null });
-    const state = get();
-    if (state.isUserDragging) return;
-
-    timerManager.clearTimer(wikiId);
-
-    if (wikiId === 'any') {
-      timerManager.clearAllOpenTimers();
-      return;
-    }
-
-    timerManager.setTimer(
-      `close-${wikiId}`,
-      () => {
+      handlePositionChange: async (id, x, y) => {
+        const boundedPosition = ensureWithinBounds(x, y);
         set((state) => ({
-          popups: state.popups.filter((p) =>
-            p.id === wikiId && p.isPinned ? true : p.id !== wikiId
+          popups: state.popups.map((p) =>
+            p.id === id ? { ...p, x: boundedPosition.x, y: boundedPosition.y, isPinned: true } : p
           ),
         }));
+        const popup = get().popups.find((p) => p.id === id);
+        if (popup) {
+          await db.popoverStates.put({
+            id,
+            x: boundedPosition.x,
+            y: boundedPosition.y,
+            width: popup.width,
+            height: popup.height,
+          });
+        }
       },
-      320
-    );
-  },
 
-  handlePopoverMouseEnter: (wikiId: string) => {
-    const state = get();
-    if (state.isUserDragging) return;
-    timerManager.clearTimer(`close-${wikiId}`);
-  },
-
-  handlePopoverMouseLeave: (wikiId: string) => {
-    get().handleMouseLeave(wikiId);
-  },
-
-  handleClick: async (wikiId: string, depth = 0) => {
-    const state = get();
-    if (state.isUserDragging) return;
-
-    timerManager.clearTimer(wikiId);
-    timerManager.clearTimer(`close-${wikiId}`);
-
-    set({ loadingWikiId: wikiId });
-
-    const currentPopups = get().popups;
-    const existingPopup = currentPopups.find((p) => p.id === wikiId);
-
-    if (existingPopup) {
-      set({ loadingWikiId: null, activePopupId: wikiId });
-      return;
-    }
-
-    const docData = await getDocument(wikiId);
-    const savedState = await db.popoverStates.get(wikiId);
-
-    if (docData) {
-      const defaultWidth = savedState?.width ?? DEFAULT_POPUP_CONFIG.width;
-      const defaultHeight = savedState?.height ?? DEFAULT_POPUP_CONFIG.height;
-
-      let adjustedX = savedState?.x ?? DEFAULT_POPUP_CONFIG.offsetX + depth * 30;
-      let adjustedY = savedState?.y ?? DEFAULT_POPUP_CONFIG.offsetY + depth * 30;
-
-      if (!savedState) {
-        adjustedX = adjustedX + depth * 25;
-        adjustedY = adjustedY + depth * 25;
-
-        if (adjustedX + defaultWidth > window.innerWidth) {
-          adjustedX = window.innerWidth - defaultWidth - 24;
+      handleSizeChange: async (id, width, height) => {
+        const constrainedSize = constrainSize(width, height);
+        set((state) => ({
+          popups: state.popups.map((p) =>
+            p.id === id
+              ? { ...p, width: constrainedSize.width, height: constrainedSize.height, isPinned: true }
+              : p
+          ),
+        }));
+        const popup = get().popups.find((p) => p.id === id);
+        if (popup) {
+          await db.popoverStates.put({
+            id,
+            x: popup.x,
+            y: popup.y,
+            width: constrainedSize.width,
+            height: constrainedSize.height,
+          });
         }
-        if (adjustedY + defaultHeight > window.innerHeight) {
-          adjustedY = window.innerHeight - defaultHeight - 24;
-        }
-      }
-
-      const newPopup: PopupData = {
-        id: wikiId,
-        title: docData.title,
-        excerpt: docData.content.substring(0, 180) + '...',
-        badge: docData.badge,
-        badgeClass: docData.badgeClass,
-        x: adjustedX,
-        y: adjustedY,
-        width: defaultWidth,
-        height: defaultHeight,
-        depth: Math.min(depth + 1, 5),
-        isPinned: false,
-        isMinimized: false,
-        history: [wikiId],
-        historyIndex: 0,
-      };
-
-      set({
-        popups: [...currentPopups.filter((p) => p.isPinned || p.depth <= depth), newPopup],
-        activePopupId: wikiId,
-        loadingWikiId: null,
-      });
-
-      if (!savedState) {
-        await db.popoverStates.put({
-          id: wikiId,
-          x: adjustedX,
-          y: adjustedY,
-          width: defaultWidth,
-          height: defaultHeight,
-        });
-      }
-    } else {
-      set({ loadingWikiId: null });
+      },
+    }),
+    {
+      name: 'axiom-popup-storage',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        pinnedPopoverMetadata: state.popups.map((p) => ({
+          id: p.id,
+          isPinned: p.isPinned,
+          isMinimized: p.isMinimized,
+        })),
+      }),
     }
-  },
-
-  handlePositionChange: async (id, x, y) => {
-    const boundedPosition = ensureWithinBounds(x, y);
-    set((state) => ({
-      popups: state.popups.map((p) =>
-        p.id === id ? { ...p, x: boundedPosition.x, y: boundedPosition.y, isPinned: true } : p
-      ),
-    }));
-    const popup = get().popups.find((p) => p.id === id);
-    if (popup) {
-      await db.popoverStates.put({
-        id,
-        x: boundedPosition.x,
-        y: boundedPosition.y,
-        width: popup.width,
-        height: popup.height,
-      });
-    }
-  },
-
-  handleSizeChange: async (id, width, height) => {
-    const constrainedSize = constrainSize(width, height);
-    set((state) => ({
-      popups: state.popups.map((p) =>
-        p.id === id
-          ? { ...p, width: constrainedSize.width, height: constrainedSize.height, isPinned: true }
-          : p
-      ),
-    }));
-    const popup = get().popups.find((p) => p.id === id);
-    if (popup) {
-      await db.popoverStates.put({
-        id,
-        x: popup.x,
-        y: popup.y,
-        width: constrainedSize.width,
-        height: constrainedSize.height,
-      });
-    }
-  },
-}));
+  )
+);

@@ -22,15 +22,6 @@ export interface RecentlyClosedPopup {
 }
 
 /**
- * 固定弹窗元数据
- */
-export interface PinnedPopoverMetadata {
-  id: string;
-  isPinned: boolean;
-  isMinimized: boolean;
-}
-
-/**
  * UI 状态接口
  */
 export interface UiState {
@@ -431,37 +422,6 @@ export const useUiStore = create<UiState>()(
         }
 
         set({ documentText: leftDoc.content });
-
-        const state = get();
-        const storedMetadata =
-          ('pinnedPopoverMetadata' in state
-            ? (state as unknown as { pinnedPopoverMetadata: PinnedPopoverMetadata[] })
-                .pinnedPopoverMetadata
-            : []) || [];
-        const restoredPopups: PopupData[] = [];
-        for (const meta of storedMetadata) {
-          const docData = await documentService.getDocument(meta.id);
-          const popoverPos = await db.popoverStates.get(meta.id);
-          if (docData) {
-            restoredPopups.push({
-              id: meta.id,
-              title: docData.title,
-              excerpt: docData.content.substring(0, 180) + '...',
-              badge: docData.badge,
-              badgeClass: docData.badgeClass,
-              x: popoverPos?.x ?? 120,
-              y: popoverPos?.y ?? 120,
-              width: popoverPos?.width ?? 500,
-              height: popoverPos?.height ?? 320,
-              isPinned: meta.isPinned,
-              isMinimized: meta.isMinimized,
-              depth: 1,
-              history: [meta.id],
-              historyIndex: 0,
-            });
-          }
-        }
-        set({ popups: restoredPopups });
       },
     }),
     {
@@ -472,11 +432,6 @@ export const useUiStore = create<UiState>()(
         isSidebarPinned: state.isSidebarPinned,
         isZenMode: state.isZenMode,
         currentWikiId: state.currentWikiId,
-        pinnedPopoverMetadata: state.popups.map((p) => ({
-          id: p.id,
-          isPinned: p.isPinned,
-          isMinimized: p.isMinimized,
-        })),
       }),
     }
   )

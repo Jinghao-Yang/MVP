@@ -46,7 +46,7 @@ function useInitializeWorkspace() {
 
     setDocumentText(leftDoc.content);
 
-    const storedMetadata = JSON.parse(localStorage.getItem('axiom-ui-storage') || '{}');
+    const storedMetadata = JSON.parse(localStorage.getItem('axiom-popup-storage') || '{}');
     const pinnedPopoverMetadata = storedMetadata?.state?.pinnedPopoverMetadata || [];
     const restoredPopups: PopupData[] = [];
 
