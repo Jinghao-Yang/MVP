@@ -1,8 +1,10 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState, useEffect } from 'react';
 import CodeMirror, { type ReactCodeMirrorProps } from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { EditorView } from '@codemirror/view';
 import { DocumentStats } from './DocumentStats';
+import { assetService } from '@/services/asset-service';
+import { toast } from 'sonner';
 
 type Extension = NonNullable<ReactCodeMirrorProps['extensions']>[number];
 
@@ -40,6 +42,32 @@ export const MarkdownEditor = memo(function MarkdownEditor({
   onSplit,
 }: MarkdownEditorProps) {
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [resolvedAssets, setResolvedAssets] = useState<Record<string, string>>({});
+
+  // Compile matching assets from document string periodically
+  useEffect(() => {
+    const regex = /axiom:\/\/asset\/[a-zA-Z0-9-]+/g;
+    const matches = value.match(regex) || [];
+
+    const resolveAll = async () => {
+      const newResolved: Record<string, string> = { ...resolvedAssets };
+      let updated = false;
+
+      for (const rawUrl of matches) {
+        if (!newResolved[rawUrl]) {
+          const resolved = await assetService.resolveAssetUrl(rawUrl);
+          newResolved[rawUrl] = resolved;
+          updated = true;
+        }
+      }
+
+      if (updated) {
+        setResolvedAssets(newResolved);
+      }
+    };
+
+    resolveAll();
+  }, [value]);
 
   const handleChange = useCallback(
     (val: string) => {
@@ -58,7 +86,6 @@ export const MarkdownEditor = memo(function MarkdownEditor({
     if (onExport) {
       onExport();
     } else {
-      // 默认导出逻辑
       const blob = new Blob([value], { type: 'text/markdown' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -75,10 +102,60 @@ export const MarkdownEditor = memo(function MarkdownEditor({
     if (onSplit) {
       onSplit();
     } else {
-      // 默认分拆逻辑 - 简单示例：按标题分拆
       console.log('Split document functionality - to be implemented');
     }
   }, [onSplit]);
+
+  // Drag Interceptor for OPFS
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent<HTMLDivElement>) => {
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        let textToInsert = '';
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          if (file.type.startsWith('image/')) {
+            e.preventDefault();
+            const axiomUrl = await assetService.saveAsset(file);
+            textToInsert += `\n![${file.name}](${axiomUrl})\n`;
+          }
+        }
+        if (textToInsert) {
+          onChange(value + textToInsert);
+          toast.success('Stored asset to sandboxed OPFS bucket!');
+        }
+      }
+    },
+    [value, onChange]
+  );
+
+  // Paste Interceptor for OPFS
+  const handlePaste = useCallback(
+    async (e: React.ClipboardEvent<HTMLDivElement>) => {
+      const items = e.clipboardData.items;
+      let textToInsert = '';
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) {
+            const axiomUrl = await assetService.saveAsset(file);
+            textToInsert += `\n![pasted_image.png](${axiomUrl})\n`;
+          }
+        }
+      }
+      if (textToInsert) {
+        onChange(value + textToInsert);
+        toast.success('Pasted asset written to OPFS storage!');
+      }
+    },
+    [value, onChange]
+  );
 
   const defaultExtensions: Extension[] = [
     markdown(),
@@ -91,6 +168,8 @@ export const MarkdownEditor = memo(function MarkdownEditor({
     const percentage = value.length / MAX_DOCUMENT_SIZE;
     return percentage >= WARNING_THRESHOLD;
   }, [value]);
+
+  const assetUrls = Object.keys(resolvedAssets);
 
   return (
     <div className="space-y-4">
@@ -108,7 +187,12 @@ export const MarkdownEditor = memo(function MarkdownEditor({
       )}
 
       {/* 编辑器主体 */}
-      <div className={`relative ${isReadOnly ? 'opacity-75' : ''}`}>
+      <div
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        onPaste={handlePaste}
+        className={`relative ${isReadOnly ? 'opacity-75' : ''}`}
+      >
         <CodeMirror
           value={value}
           onChange={handleChange}
@@ -128,6 +212,40 @@ export const MarkdownEditor = memo(function MarkdownEditor({
           <div className="absolute inset-0 bg-transparent cursor-not-allowed pointer-events-none" />
         )}
       </div>
+
+      {/* OPFS Media Tracing Panel */}
+      {assetUrls.length > 0 && (
+        <div className="border border-neutral-200/50 rounded-2xl p-4 bg-neutral-50/30 space-y-2.5">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono tracking-widest uppercase font-bold text-neutral-400">
+            <span>OPFS Media Pipeline</span>
+            <span className="text-[9px] bg-neutral-200 px-1.5 py-0.5 rounded text-neutral-500 font-bold">
+              {assetUrls.length} Files
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {assetUrls.map((rawUrl) => (
+              <div
+                key={rawUrl}
+                className="flex flex-col items-center gap-1 bg-white p-2 border border-neutral-200 rounded-lg group shadow-sm"
+              >
+                <img
+                  src={resolvedAssets[rawUrl]}
+                  alt="OPFS Content preview"
+                  className="w-20 h-20 object-cover rounded cursor-pointer hover:opacity-90 active:scale-95 transition-all"
+                  referrerPolicy="no-referrer"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`![Image](${rawUrl})`);
+                    toast.info('Asset markdown copied!');
+                  }}
+                />
+                <span className="font-mono text-[8px] text-neutral-400 max-w-[80px] break-all select-all">
+                  {rawUrl.replace('axiom://asset/', '')}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }, arePropsEqual);

@@ -1,7 +1,7 @@
 /* ==================================================
    FILE: src/editor/components/EditorRightPane.tsx
    ================================================== */
-import { ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen, X } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useUiStore } from '@/stores/ui-store';
 import { db } from '@/db/dexie';
@@ -22,13 +22,18 @@ export function EditorRightPane() {
   ) as DocumentEntity | undefined;
 
   // 历史导航 Hook
-  const { canGoBack, canGoForward, goBack, goForward, loadWiki } = useDocumentHistory(setCurrentWikiId);
+  const { canGoBack, canGoForward, goBack, goForward, loadWiki } =
+    useDocumentHistory(setCurrentWikiId);
 
   return (
     <aside
       id="editor-context-panel"
-      style={{ width: '480px' }}
-      className="bg-white/40 backdrop-blur-xl flex flex-col shrink-0 border-l border-neutral-200/60 h-full overflow-hidden transition-all duration-300"
+      style={{ width: currentWikiId ? '480px' : '0px' }}
+      className={`bg-white/40 backdrop-blur-xl flex flex-col shrink-0 transition-all duration-300 h-full overflow-hidden ${
+        currentWikiId
+          ? 'border-l border-neutral-200/60 opacity-100 pointer-events-auto'
+          : 'border-l-0 opacity-0 pointer-events-none'
+      }`}
     >
       {currentWikiId && currentDocument ? (
         <div className="flex-1 flex flex-col h-full animate-in fade-in duration-300">
@@ -52,10 +57,17 @@ export function EditorRightPane() {
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <span className="font-mono text-[9px] uppercase tracking-widest font-bold text-neutral-400">
                 Split Pane // Reference
               </span>
+              <button
+                onClick={() => setCurrentWikiId(null)}
+                className="p-1 hover:bg-black/5 text-neutral-400 hover:text-black border-none bg-transparent rounded cursor-pointer transition-colors"
+                title="Close split pane"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </header>
 

@@ -61,7 +61,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
           isDirty: false,
         });
       }
-    } catch (error) {
+    } catch {
       showErrorToast('Failed to load document');
     }
   },

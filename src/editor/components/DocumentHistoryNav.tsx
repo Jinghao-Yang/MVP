@@ -83,10 +83,13 @@ export function useDocumentHistory(onNavigate: (wikiId: string) => void) {
     dispatchHistory({ type: 'GO_FORWARD' });
   }, [historyState.historyIndex, historyState.documentHistory, canGoForward, onNavigate]);
 
-  const loadWiki = useCallback((wikiId: string) => {
-    onNavigate(wikiId);
-    dispatchHistory({ type: 'LOAD_WIKI', wikiId });
-  }, [onNavigate]);
+  const loadWiki = useCallback(
+    (wikiId: string) => {
+      onNavigate(wikiId);
+      dispatchHistory({ type: 'LOAD_WIKI', wikiId });
+    },
+    [onNavigate]
+  );
 
   return {
     canGoBack,

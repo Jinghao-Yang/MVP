@@ -17,16 +17,22 @@ export function BacklinksPanel({ wikiId, onLinkClick }: BacklinksPanelProps) {
   // 加载反向链接
   useEffect(() => {
     if (wikiId) {
-      documentService.getBacklinks(wikiId).then(setBacklinks).catch(() => showErrorToast('Failed to load backlinks'));
+      documentService
+        .getBacklinks(wikiId)
+        .then(setBacklinks)
+        .catch(() => showErrorToast('Failed to load backlinks'));
     } else {
       setBacklinks([]);
     }
   }, [wikiId]);
 
   // 处理链接点击
-  const handleLinkClick = useCallback((linkId: string) => {
-    onLinkClick(linkId);
-  }, [onLinkClick]);
+  const handleLinkClick = useCallback(
+    (linkId: string) => {
+      onLinkClick(linkId);
+    },
+    [onLinkClick]
+  );
 
   return (
     <div className="border-t border-black/5 pt-6 space-y-3">

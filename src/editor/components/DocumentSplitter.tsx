@@ -202,12 +202,14 @@ export function DocumentSplitter({ content, onSplit, onClose, maxSize }: Documen
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <button
-              onClick={selectAll}
-              className="text-sm font-sys font-medium text-bh-red hover:text-bh-red/80 transition-colors"
-              aria-label={selectedSections.size === currentSections.length ? '取消全选' : '全选所有段落'}
-            >
-              {selectedSections.size === currentSections.length ? '取消全选' : '全选'}
-            </button>
+                onClick={selectAll}
+                className="text-sm font-sys font-medium text-bh-red hover:text-bh-red/80 transition-colors"
+                aria-label={
+                  selectedSections.size === currentSections.length ? '取消全选' : '全选所有段落'
+                }
+              >
+                {selectedSections.size === currentSections.length ? '取消全选' : '全选'}
+              </button>
               <span className="text-xs font-sys text-neutral-500">
                 ({selectedSections.size}/{currentSections.length} 已选)
               </span>

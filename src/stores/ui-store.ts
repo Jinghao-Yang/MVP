@@ -18,6 +18,8 @@ export interface UiState {
   // ============================================
   /** 当前活动页面 */
   activePage: string;
+  /** 当前 Project 页面的活动 Tab */
+  activeProjectTab: string;
   /** 侧边栏是否悬停 */
   isSidebarHovered: boolean;
   /** 是否禅模式 */
@@ -36,14 +38,22 @@ export interface UiState {
   // ============================================
   // 跨组件共享状态
   // ============================================
-  /** 当前打开的 Wiki ID */
+  /** 当前主干编辑器打开的 Wiki ID */
+  mainWikiId: string;
+  /** 当前打开的右侧 Wiki ID */
   currentWikiId: string | null;
+  /** 当前数据库视图过滤的对象类型 */
+  selectedTypeId: string | null;
+  /** 当前数据库视图过滤的的标签 */
+  selectedTag: string | null;
 
   // ============================================
   // 核心 UI Actions
   // ============================================
   /** 设置活动页面 */
   setActivePage: (page: string) => void;
+  /** 设置 Project 页面 Tab */
+  setActiveProjectTab: (tab: string) => void;
   /** 设置侧边栏悬停状态 */
   setSidebarHovered: (hovered: boolean) => void;
   /** 设置禅模式 */
@@ -60,8 +70,14 @@ export interface UiState {
   // ============================================
   // 跨组件共享 Actions
   // ============================================
-  /** 设置当前 Wiki ID */
+  /** 设置主干 Wiki ID */
+  setMainWikiId: (id: string) => void;
+  /** 设置侧边栏当前 Wiki ID */
   setCurrentWikiId: (id: string | null) => void;
+  /** 设置选中的对象类型 */
+  setSelectedTypeId: (id: string | null) => void;
+  /** 设置选中的标签 */
+  setSelectedTag: (tag: string | null) => void;
 }
 
 // ============================================
@@ -85,6 +101,7 @@ export const useUiStore = create<UiState>()(
       // 核心 UI 状态初始值
       // ============================================
       activePage: 'project',
+      activeProjectTab: 'kanban',
       isSidebarHovered: false,
       isZenMode: false,
       isCommandPaletteOpen: false,
@@ -96,7 +113,10 @@ export const useUiStore = create<UiState>()(
       // ============================================
       // 跨组件共享状态初始值
       // ============================================
+      mainWikiId: 'main-editor-doc',
       currentWikiId: null,
+      selectedTypeId: null,
+      selectedTag: null,
 
       // ============================================
       // 核心 UI Actions 实现
@@ -108,6 +128,8 @@ export const useUiStore = create<UiState>()(
           isSidebarHovered: false,
           isMobileSidebarOpen: false,
         }),
+
+      setActiveProjectTab: (tab) => set({ activeProjectTab: tab }),
 
       setSidebarHovered: (hovered) => {
         if (get().isZenMode) return;
@@ -133,7 +155,10 @@ export const useUiStore = create<UiState>()(
       // ============================================
       // 跨组件共享 Actions 实现
       // ============================================
+      setMainWikiId: (id) => set({ mainWikiId: id }),
       setCurrentWikiId: (id) => set({ currentWikiId: id }),
+      setSelectedTypeId: (id) => set({ selectedTypeId: id }),
+      setSelectedTag: (tag) => set({ selectedTag: tag }),
     }),
     {
       name: 'axiom-ui-storage',
@@ -142,6 +167,7 @@ export const useUiStore = create<UiState>()(
         activePage: state.activePage,
         isSidebarPinned: state.isSidebarPinned,
         isZenMode: state.isZenMode,
+        mainWikiId: state.mainWikiId,
         currentWikiId: state.currentWikiId,
       }),
     }

@@ -98,9 +98,7 @@ export function LedgerColumn({ id, title, index, cards, isTerminal }: LedgerColu
           </div>
         ) : (
           // 普通渲染模式
-          cards.map((card) => (
-            <DraggableItem key={card.id} card={card} isTerminal={!!isTerminal} />
-          ))
+          cards.map((card) => <DraggableItem key={card.id} card={card} isTerminal={!!isTerminal} />)
         )}
         {cards.length === 0 && (
           <div className="h-full flex items-center justify-center text-neutral-300 font-mono text-[10px] uppercase tracking-widest min-h-[200px]">

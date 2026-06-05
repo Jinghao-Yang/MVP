@@ -9,6 +9,7 @@ import { PageRouter } from '@/components/layout/PageRouter';
 import { CommandPalette } from '@/components/CommandPalette';
 import { useUiStore, type UiState } from '@/stores/ui-store';
 import { useKanbanStore } from '@/stores/kanban-store';
+import { useSettingsStore } from '@/stores/settings-store';
 import { useShallow } from 'zustand/react/shallow';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useWorkspaceInit } from '@/hooks/useWorkspaceInit';
@@ -42,12 +43,21 @@ function AppContent() {
     }))
   );
 
+  const { theme, fontSize } = useSettingsStore();
+
   const isCommandPaletteOpen = useUiStore((state: UiState) => state.isCommandPaletteOpen);
   const initializeWorkspace = useWorkspaceInit();
 
   useEffect(() => {
     initializeWorkspace();
   }, [initializeWorkspace]);
+
+  useEffect(() => {
+    document.body.className = `theme-${theme} font-size-${fontSize}`;
+    if (isZenMode) {
+      document.body.classList.add('zen-active');
+    }
+  }, [theme, fontSize, isZenMode]);
 
   // ================================================
   // 注册全局快捷键 (react-hotkeys-hook)
@@ -84,11 +94,11 @@ function AppContent() {
         position="bottom-right"
         toastOptions={{
           style: {
-            background: 'rgba(255, 255, 255, 0.85)',
+            background: 'var(--bg-canvas)',
             backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(0, 0, 0, 0.08)',
+            border: '1px solid var(--text-muted)',
             fontFamily: 'Space Grotesk, sans-serif',
-            color: '#1C1C1A',
+            color: 'var(--text-main)',
             fontSize: '12px',
           },
         }}
@@ -110,10 +120,7 @@ function AppContent() {
       <PageRouter isSidebarActiveCollapsed={isSidebarActiveCollapsed} />
 
       {/* 命令面板 */}
-      <CommandPalette
-        isOpen={isCommandPaletteOpen}
-        onClose={() => setCommandPaletteOpen(false)}
-      />
+      <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
 
       {/* 快捷捕获 */}
       <QuickCapture

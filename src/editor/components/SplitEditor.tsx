@@ -47,7 +47,7 @@ export function SplitEditor({ wikiId, document }: SplitEditorProps) {
       await documentService.updateDocumentContent(wikiId, localContent);
       originalContentRef.current = localContent;
       setSaveStatus('saved');
-    } catch (error) {
+    } catch {
       showErrorToast('Failed to save document');
       setSaveStatus('error');
     }
@@ -57,7 +57,9 @@ export function SplitEditor({ wikiId, document }: SplitEditorProps) {
   useEffect(() => {
     return () => {
       if (hasUnsavedChanges && wikiId) {
-        documentService.updateDocumentContent(wikiId, localContent).catch(() => showErrorToast('Failed to save document'));
+        documentService
+          .updateDocumentContent(wikiId, localContent)
+          .catch(() => showErrorToast('Failed to save document'));
       }
     };
   }, [wikiId, localContent, hasUnsavedChanges]);

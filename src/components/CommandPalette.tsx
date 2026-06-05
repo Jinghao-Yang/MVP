@@ -1,6 +1,6 @@
 import { memo, useEffect, useState, useCallback } from 'react';
 import { Command } from 'cmdk';
-import { FileText, Plus, Layout, Maximize2, Minimize2, Search, ArrowRight, Clock, Sparkles } from 'lucide-react';
+import { FileText, Plus, Layout, Maximize2, Minimize2, ArrowRight, Sparkles } from 'lucide-react';
 import { useOverlay } from '@/hooks/useOverlay';
 import { useUiStore } from '@/stores/ui-store';
 import { useDocument } from '@/hooks/useDocument';
@@ -28,7 +28,7 @@ function CommandPaletteComponent({ isOpen, onClose }: CommandPaletteProps) {
   const { overlayProps } = useOverlay({ isOpen, onClose });
   const [search, setSearch] = useState('');
   const [documents, setDocuments] = useState<DocumentEntity[]>([]);
-  const { getAllDocuments, createDocument, setCurrentWikiId } = useDocument();
+  const { getAllDocuments, createDocument } = useDocument();
   const { setActivePage, setZenMode, isZenMode, setStatus } = useUiStore();
 
   // 加载文档列表
@@ -51,7 +51,7 @@ function CommandPaletteComponent({ isOpen, onClose }: CommandPaletteProps) {
   const handleCreateDocument = useCallback(async () => {
     const title = search.trim() || 'Untitled Document';
     const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    
+
     try {
       await createDocument({
         id,
@@ -61,27 +61,33 @@ function CommandPaletteComponent({ isOpen, onClose }: CommandPaletteProps) {
         badgeClass: 'bg-green-100 text-green-700',
         updatedAt: Date.now(),
       });
-      setCurrentWikiId(id);
+      useUiStore.getState().setMainWikiId(id);
       setActivePage('editor');
       toast.success(`Created "${title}"`);
       onClose();
-    } catch (error) {
+    } catch {
       toast.error('Failed to create document');
     }
-  }, [search, createDocument, setCurrentWikiId, setActivePage, onClose]);
+  }, [search, createDocument, setActivePage, onClose]);
 
   // 导航到文档
-  const handleNavigateToDocument = useCallback((doc: DocumentEntity) => {
-    setCurrentWikiId(doc.id);
-    setActivePage('editor');
-    onClose();
-  }, [setCurrentWikiId, setActivePage, onClose]);
+  const handleNavigateToDocument = useCallback(
+    (doc: DocumentEntity) => {
+      useUiStore.getState().setMainWikiId(doc.id);
+      setActivePage('editor');
+      onClose();
+    },
+    [setActivePage, onClose]
+  );
 
   // 切换视图
-  const handleNavigateToPage = useCallback((page: string) => {
-    setActivePage(page);
-    onClose();
-  }, [setActivePage, onClose]);
+  const handleNavigateToPage = useCallback(
+    (page: string) => {
+      setActivePage(page);
+      onClose();
+    },
+    [setActivePage, onClose]
+  );
 
   // 切换禅模式
   const handleToggleZenMode = useCallback(() => {
@@ -215,9 +221,7 @@ function CommandPaletteComponent({ isOpen, onClose }: CommandPaletteProps) {
                       )}
                     </div>
                     {command.shortcut && (
-                      <kbd className="text-[10px] font-mono text-black/30">
-                        {command.shortcut}
-                      </kbd>
+                      <kbd className="text-[10px] font-mono text-black/30">{command.shortcut}</kbd>
                     )}
                     <ArrowRight className="w-3 h-3 text-black/20 group-hover:text-black/40 transition-colors" />
                   </Command.Item>

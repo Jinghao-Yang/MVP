@@ -4,7 +4,18 @@
  */
 
 // 文档相关类型
-export type { DocumentEntity, WikiEntry, WikiDb, BidirectionalLinkEntity } from './document';
+export type {
+  DocumentEntity,
+  WikiEntry,
+  WikiDb,
+  BidirectionalLinkEntity,
+  ObjectTypeEntity,
+  PropertyEntity,
+  DocPropertyEntity,
+  RelationEntity,
+  TagEntity,
+  AssetEntity,
+} from './document';
 
 // 弹窗相关类型
 export type { PopupData, PopoverStateEntity, PopoverCardProps } from './popup';

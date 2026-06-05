@@ -28,7 +28,7 @@ export const useKanbanStore = create<KanbanState>()((set, get) => ({
     try {
       const cards = await getKanbanCards();
       set({ kanbanCards: cards });
-    } catch (error) {
+    } catch {
       const errorMsg = 'Failed to load cards. Please try again.';
       set({ error: errorMsg });
       showErrorToast(errorMsg);
@@ -40,7 +40,7 @@ export const useKanbanStore = create<KanbanState>()((set, get) => ({
       set({ error: null });
       const cards = await dbUpdateCardColumn(cardId, newColumnId);
       set({ kanbanCards: cards });
-    } catch (err) {
+    } catch {
       const errorMsg = 'Failed to update card position. Please try again.';
       set({ error: errorMsg });
       showErrorToast(errorMsg);
@@ -56,7 +56,7 @@ export const useKanbanStore = create<KanbanState>()((set, get) => ({
       const cards = await addQuickCaptureNote(text);
       set({ quickCaptureText: '', kanbanCards: cards });
       setStatus('Idea Captured as Fleeting Card.');
-    } catch (err) {
+    } catch {
       const errorMsg = 'Failed to save your note. Please try again.';
       set({ error: errorMsg });
       showErrorToast(errorMsg);

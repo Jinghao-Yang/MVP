@@ -21,4 +21,10 @@ export interface EditorPageProps {
 export interface EditorSidebarProps {
   /** 是否处于禅模式 */
   isZenMode: boolean;
+  /** 当前选中的 tab */
+  activeTab?: string;
+  /** tab 切换回调 */
+  onTabChange?: (tab: string) => void;
+  /** 设置状态信息回调 */
+  setStatus?: (status: string) => void;
 }

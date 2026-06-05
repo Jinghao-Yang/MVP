@@ -89,7 +89,9 @@ export function DocumentStats({
             <FileText className="w-4 h-4 opacity-60" />
             <div className="flex flex-col">
               <span className="text-xs font-sys font-medium opacity-70">字符</span>
-              <span className="text-sm font-mono font-semibold">{formatNumber(stats.characters)}</span>
+              <span className="text-sm font-mono font-semibold">
+                {formatNumber(stats.characters)}
+              </span>
             </div>
           </div>
 
@@ -116,7 +118,9 @@ export function DocumentStats({
         <div className="flex items-center gap-3">
           <div className="flex flex-col items-end">
             <span className="text-xs font-sys font-medium opacity-70">容量使用</span>
-            <span className="text-sm font-mono font-semibold">{Math.min(stats.percentage, 100).toFixed(1)}%</span>
+            <span className="text-sm font-mono font-semibold">
+              {Math.min(stats.percentage, 100).toFixed(1)}%
+            </span>
           </div>
           <div className="w-24 h-2 bg-white/50 rounded-full overflow-hidden border border-black/5">
             <div

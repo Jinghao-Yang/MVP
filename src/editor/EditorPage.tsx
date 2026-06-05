@@ -2,6 +2,7 @@
    FILE: src/editor/EditorPage.tsx
    ================================================ */
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { toast } from 'sonner';
 import { useUiStore } from '@/stores/ui-store';
 import { useEditorStore, type EditorState } from '@/stores/editor-store';
 import { usePopupStore } from '@/stores/popup-store';
@@ -14,9 +15,12 @@ import { PopupManager } from './components/PopupManager';
 import { MinimizedPopups } from './components/MinimizedPopups';
 import { WikiHoverPreview } from './components/WikiHoverPreview';
 import { DocumentSplitter } from './components/DocumentSplitter';
+import { PropertyForm } from './components/PropertyForm'; // Object property sheets
+import { MainBacklinksPanel } from './components/MainBacklinksPanel';
 import { wysiwygLinkExtension } from './extensions/wysiwyg-link';
-import { Maximize2, Minimize2 } from 'lucide-react';
+import { Maximize2, Minimize2, BookOpen, MessageSquare } from 'lucide-react';
 import type { DocumentEntity } from '@/types';
+import { exportService } from '@/services/export-service';
 import { MAX_DOCUMENT_SIZE } from './components/MarkdownEditor';
 
 export function EditorPage({
@@ -32,8 +36,14 @@ export function EditorPage({
   const markAsSaved = useEditorStore((state: EditorState) => state.markAsSaved);
   const setHoveredLink = usePopupStore((state) => state.setHoveredLink);
 
-  const mainDocument = useLiveQuery(() => db.documents.get('main-editor-doc'), []);
+  const mainWikiId = useUiStore((state) => state.mainWikiId) || 'main-editor-doc';
+  const currentWikiId = useUiStore((state) => state.currentWikiId);
+  const setCurrentWikiId = useUiStore((state) => state.setCurrentWikiId);
+
+  const mainDocument = useLiveQuery(() => db.documents.get(mainWikiId), [mainWikiId]);
+  const allDocs = useLiveQuery(() => db.documents.toArray(), []);
   const [showSplitter, setShowSplitter] = useState(false);
+  const [isContextPanelOpen, setIsContextPanelOpen] = useState(false);
 
   // 1. 同步主编辑器文本至 IndexedDB 实现持久防抖保存
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -44,14 +54,14 @@ export function EditorPage({
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
       saveTimeoutRef.current = setTimeout(async () => {
-        await db.documents.update('main-editor-doc', {
+        await db.documents.update(mainWikiId, {
           content: newText,
           updatedAt: Date.now(),
         });
         markAsSaved();
       }, 500); // 500ms 极其静默的后台保存
     },
-    [setDocumentText, markAsSaved]
+    [mainWikiId, setDocumentText, markAsSaved]
   );
 
   useEffect(() => {
@@ -76,17 +86,14 @@ export function EditorPage({
   );
 
   // 3. 处理文档导出
-  const handleExport = useCallback(() => {
-    const blob = new Blob([documentText], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `document-${Date.now()}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, [documentText]);
+  const handleExport = useCallback(async () => {
+    try {
+      await exportService.triggerDownload(mainWikiId);
+      toast.success('Metadata aggregated! Saved as frontmatter Markdown.');
+    } catch {
+      toast.error('Failed to aggregate and export node YAML metadata.');
+    }
+  }, [mainWikiId]);
 
   // 4. 处理文档分拆
   const handleSplit = useCallback(() => {
@@ -127,24 +134,64 @@ export function EditorPage({
           <div className="flex items-center gap-2">
             <span className="tag-badge bg-bh-red/10 text-bh-red">Active Workspace</span>
           </div>
-          <button
-            onClick={onToggleZen}
-            className="p-2.5 hover:bg-black/5 transition-colors border-none bg-transparent cursor-pointer rounded-lg text-neutral-500 hover:text-black"
-            aria-label={isZenMode ? '退出禅模式' : '进入禅模式'}
-          >
-            {isZenMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsContextPanelOpen((prev) => !prev)}
+              className={`p-2 px-3 inline-flex items-center gap-1.5 hover:bg-black/5 transition-colors border-none bg-transparent cursor-pointer rounded-lg text-xs font-semibold ${
+                isContextPanelOpen ? 'text-black bg-black/5' : 'text-neutral-500 hover:text-black'
+              }`}
+              title="Toggle Marginalia Context Panel"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Context Panel</span>
+            </button>
+            <button
+              onClick={() => {
+                if (currentWikiId) {
+                  setCurrentWikiId(null);
+                } else {
+                  const firstOther = (allDocs || []).find((d) => d.id !== mainWikiId);
+                  setCurrentWikiId(firstOther ? firstOther.id : mainWikiId);
+                }
+              }}
+              className={`p-2 px-3 inline-flex items-center gap-1.5 hover:bg-black/5 transition-colors border-none bg-transparent cursor-pointer rounded-lg text-xs font-semibold ${
+                currentWikiId ? 'text-black bg-black/5' : 'text-neutral-500 hover:text-black'
+              }`}
+              title="Compare Side-by-Side"
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>Split Pane</span>
+            </button>
+            <button
+              onClick={onToggleZen}
+              className="p-2.5 hover:bg-black/5 transition-colors border-none bg-transparent cursor-pointer rounded-lg text-neutral-500 hover:text-black"
+              aria-label={isZenMode ? '退出禅模式' : '进入禅模式'}
+            >
+              {isZenMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+          </div>
         </header>
 
         {/* 主编辑区 */}
         <div className="flex-1 overflow-y-auto p-12 custom-scrollbar flex flex-col">
           <div className="max-w-[720px] mx-auto w-full flex-1 flex flex-col space-y-6">
-            <h1 className="font-human text-4xl font-normal text-black outline-none tracking-tight leading-snug">
-              Topology Math
-            </h1>
+            <input
+              type="text"
+              value={mainDocument?.title || ''}
+              onChange={async (e) => {
+                const newTitle = e.target.value;
+                await db.documents.update(mainWikiId, { title: newTitle });
+              }}
+              className="font-human text-4xl font-normal text-black outline-none tracking-tight leading-snug w-full bg-transparent border-none p-0 focus:ring-0 cursor-text"
+              placeholder="Untitled Node"
+            />
+
+            {/* Object property sheet (The Capacities Way) */}
+            <PropertyForm docId={mainWikiId} />
+
             <div className="editor-container flex-1 min-h-0">
               <MarkdownEditor
-                docId="main-editor-doc"
+                docId={mainWikiId}
                 value={documentText}
                 onChange={handleEditorChange}
                 extensions={editorExtensions}
@@ -153,6 +200,9 @@ export function EditorPage({
                 onSplit={handleSplit}
               />
             </div>
+
+            {/* Backlink panel querying links and structural relations */}
+            <MainBacklinksPanel docId={mainWikiId} />
           </div>
         </div>
       </div>
@@ -160,8 +210,8 @@ export function EditorPage({
       {/* 右侧关系分裂视口 */}
       <EditorRightPane />
 
-      {/* 极简上下文标注栏 */}
-      <EditorSidebar isZenMode={isZenMode} />
+      {/* 极简上下文标注栏 (hidden by default, toggled via toolbar button) */}
+      <EditorSidebar isZenMode={!isContextPanelOpen} />
 
       {/* 桌面级多卡片画布叠加系统 */}
       <PopupManager />

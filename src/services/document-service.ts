@@ -36,7 +36,7 @@ export const documentService = {
   async getDocument(id: string): Promise<DocumentEntity | undefined> {
     try {
       return await documentsDb.getDocument(id);
-    } catch (error) {
+    } catch {
       showErrorToast('Failed to load document');
       return undefined;
     }
@@ -49,7 +49,7 @@ export const documentService = {
   async getAllDocuments(): Promise<DocumentEntity[]> {
     try {
       return await documentsDb.getAllDocuments();
-    } catch (error) {
+    } catch {
       showErrorToast('Failed to load documents');
       return [];
     }
@@ -150,7 +150,7 @@ export const documentService = {
   async getBacklinks(id: string): Promise<string[]> {
     try {
       return await linksDb.getBacklinks(id);
-    } catch (error) {
+    } catch {
       showErrorToast('Failed to load backlinks');
       return [];
     }
@@ -165,7 +165,7 @@ export const documentService = {
   async getForwardLinks(id: string): Promise<string[]> {
     try {
       return await linksDb.getForwardLinks(id);
-    } catch (error) {
+    } catch {
       showErrorToast('Failed to load links');
       return [];
     }
@@ -180,7 +180,7 @@ export const documentService = {
   async updateDocumentLinks(id: string, content: string): Promise<void> {
     try {
       await linksDb.updateDocumentLinks(id, content);
-    } catch (error) {
+    } catch {
       showErrorToast('Failed to update links');
     }
   },
