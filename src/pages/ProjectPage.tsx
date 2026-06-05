@@ -1,9 +1,12 @@
+/* ================================================
+   FILE: src/pages/ProjectPage.tsx
+   ================================================ */
 import { useState, useEffect } from 'react';
 import { useKanbanStore } from '@/stores/kanban-store';
 import { KanbanBoard } from './kanban/KanbanBoard';
 import { ChangelogView } from './changelog/ChangelogView';
 import { TimelineView } from './timeline/TimelineView';
-import { GalleryView } from './gallery/GalleryView';
+import { DatabaseView } from './database/DatabaseView';
 
 export function ProjectPage({ openPage }: { openPage: (p: string) => void }) {
   const [activeTab, setActiveTab] = useState('kanban');
@@ -21,8 +24,8 @@ export function ProjectPage({ openPage }: { openPage: (p: string) => void }) {
         return <ChangelogView />;
       case 'timeline':
         return <TimelineView />;
-      case 'gallery':
-        return <GalleryView openPage={openPage} />;
+      case 'database':
+        return <DatabaseView openPage={openPage} />; // 绑定
       default:
         return <KanbanBoard />;
     }
@@ -39,13 +42,13 @@ export function ProjectPage({ openPage }: { openPage: (p: string) => void }) {
           </div>
         </div>
         <div className="flex items-center gap-1 p-1 bg-white/30 backdrop-blur-md border border-black/5">
-          {['changelog', 'timeline', 'kanban', 'gallery'].map((tab) => (
+          {['changelog', 'timeline', 'kanban', 'database'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`spring-click px-4 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-none border-none cursor-pointer ${activeTab === tab ? 'text-black bg-white/60 shadow-sm' : 'text-[var(--text-muted)] hover:text-black hover-ui'}`}
             >
-              {tab === 'kanban' ? 'Ledger' : tab}
+              {tab === 'kanban' ? 'Ledger' : tab === 'database' ? 'Database' : tab}
             </button>
           ))}
         </div>

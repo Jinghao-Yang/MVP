@@ -3,28 +3,35 @@
    ================================================ */
 import { useEffect } from 'react';
 import { Sidebar } from '@/layout/Sidebar';
-import { CommandPalette } from '@/components/CommandPalette';
 import { QuickCapture } from '@/components/QuickCapture';
 import { MobileSidebar } from '@/components/layout/MobileSidebar';
-import { StatusBar } from '@/components/layout/StatusBar';
 import { PageRouter } from '@/components/layout/PageRouter';
 import { useUiStore, type UiState } from '@/stores/ui-store';
 import { useKanbanStore } from '@/stores/kanban-store';
 import { useShallow } from 'zustand/react/shallow';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useWorkspaceInit } from '@/hooks/useWorkspaceInit';
+import { Toaster, toast } from 'sonner';
+import { useHotkeys } from 'react-hotkeys-hook';
 
 function AppContent() {
-  const { isSidebarHovered, isZenMode, isSidebarPinned, setActivePage, setCommandPaletteOpen } =
-    useUiStore(
-      useShallow((state: UiState) => ({
-        isSidebarHovered: state.isSidebarHovered,
-        isZenMode: state.isZenMode,
-        isSidebarPinned: state.isSidebarPinned,
-        setActivePage: state.setActivePage,
-        setCommandPaletteOpen: state.setCommandPaletteOpen,
-      }))
-    );
+  const {
+    isSidebarHovered,
+    isZenMode,
+    isSidebarPinned,
+    setActivePage,
+    setCommandPaletteOpen,
+    setZenMode,
+  } = useUiStore(
+    useShallow((state: UiState) => ({
+      isSidebarHovered: state.isSidebarHovered,
+      isZenMode: state.isZenMode,
+      isSidebarPinned: state.isSidebarPinned,
+      setActivePage: state.setActivePage,
+      setCommandPaletteOpen: state.setCommandPaletteOpen,
+      setZenMode: state.setZenMode,
+    }))
+  );
 
   const { quickCaptureText, setQuickCaptureText, quickCaptureSubmit } = useKanbanStore(
     useShallow((state) => ({
@@ -35,19 +42,53 @@ function AppContent() {
   );
 
   const isCommandPaletteOpen = useUiStore((state: UiState) => state.isCommandPaletteOpen);
-  const setStatus = useUiStore((state: UiState) => state.setStatus);
-
   const initializeWorkspace = useWorkspaceInit();
 
   useEffect(() => {
     initializeWorkspace();
   }, [initializeWorkspace]);
 
+  // ================================================
+  // 注册全局快捷键 (react-hotkeys-hook)
+  // ================================================
+  useHotkeys('mod+k', (e) => {
+    e.preventDefault();
+    setCommandPaletteOpen(!isCommandPaletteOpen);
+  });
+
+  useHotkeys('mod+z', (e) => {
+    e.preventDefault();
+    setZenMode(!isZenMode);
+    toast.info(!isZenMode ? 'Zen mode activated.' : 'Restored layout.');
+  });
+
+  useHotkeys('mod+i', (e) => {
+    e.preventDefault();
+    // 聚焦快速捕获输入框的简单逻辑
+    const input = document.querySelector('.quick-capture input') as HTMLInputElement;
+    if (input) input.focus();
+  });
+
   const isSidebarActiveCollapsed = isZenMode || (!isSidebarPinned && !isSidebarHovered);
 
   return (
     <ErrorBoundary>
-      {/* 移动端侧边栏 */}
+      {/* 极简优雅的 Toast 系统 */}
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: 'rgba(255, 255, 255, 0.85)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(0, 0, 0, 0.08)',
+            fontFamily: 'Space Grotesk, sans-serif',
+            color: '#1C1C1A',
+            fontSize: '12px',
+          },
+        }}
+      />
+
+      {/* 移动端触控抽屉式侧边栏 */}
       <MobileSidebar />
 
       {/* 桌面端侧边栏 */}
@@ -55,7 +96,7 @@ function AppContent() {
         <Sidebar
           openPage={setActivePage}
           openCommandPalette={() => setCommandPaletteOpen(true)}
-          setStatus={setStatus}
+          setStatus={(msg) => toast(msg)}
         />
       </div>
 
@@ -67,17 +108,7 @@ function AppContent() {
         isZenMode={isZenMode}
         value={quickCaptureText}
         onChange={setQuickCaptureText}
-        onSubmit={() => quickCaptureSubmit(setStatus)}
-      />
-
-      {/* 状态提示 */}
-      <StatusBar />
-
-      {/* 命令面板 */}
-      <CommandPalette
-        isOpen={isCommandPaletteOpen}
-        onClose={() => setCommandPaletteOpen(false)}
-        onOpenPage={setActivePage}
+        onSubmit={() => quickCaptureSubmit((msg) => toast.success(msg))}
       />
     </ErrorBoundary>
   );

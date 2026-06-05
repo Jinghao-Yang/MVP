@@ -1,19 +1,12 @@
-/**
- * 弹窗状态管理 Store
- * 管理弹窗的打开、关闭、固定、最小化等状态
- */
-
+/* ================================================
+   FILE: src/stores/popup-store.ts
+   ================================================ */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type React from 'react';
 import type { PopupData } from '@/types';
 import { getDocument } from '@/services/document-service';
 import { db } from '@/db/dexie';
-import { timerManager } from '@/utils/timer-manager';
-
-// ============================================================================
-// 弹窗配置常量
-// ============================================================================
 
 const DEFAULT_POPUP_CONFIG = {
   width: 500,
@@ -26,17 +19,6 @@ const DEFAULT_POPUP_CONFIG = {
   maxHeight: 600,
 } as const;
 
-// ============================================================================
-// 辅助函数
-// ============================================================================
-
-/**
- * 确保位置在屏幕边界内
- * @param x - X 坐标
- * @param y - Y 坐标
- * @param width - 弹窗实际宽度
- * @param height - 弹窗实际高度
- */
 function ensureWithinBounds(
   x: number,
   y: number,
@@ -46,21 +28,15 @@ function ensureWithinBounds(
   if (typeof window !== 'undefined') {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-
     const maxX = viewportWidth - width;
     const boundedX = Math.max(0, Math.min(x, maxX));
-
     const maxY = viewportHeight - height;
     const boundedY = Math.max(0, Math.min(y, maxY));
-
     return { x: boundedX, y: boundedY };
   }
   return { x, y };
 }
 
-/**
- * 限制尺寸在最小和最大范围内
- */
 function constrainSize(width: number, height: number): { width: number; height: number } {
   return {
     width: Math.max(DEFAULT_POPUP_CONFIG.minWidth, Math.min(width, DEFAULT_POPUP_CONFIG.maxWidth)),
@@ -71,106 +47,70 @@ function constrainSize(width: number, height: number): { width: number; height: 
   };
 }
 
-/**
- * 计算默认弹窗位置
- */
-function _calculateDefaultPosition(depth: number): { x: number; y: number } {
-  const offset = depth * 30;
-  return {
-    x: DEFAULT_POPUP_CONFIG.offsetX + offset,
-    y: DEFAULT_POPUP_CONFIG.offsetY + offset,
-  };
-}
-
-// ============================================================================
-// 类型定义
-// ============================================================================
-
-/** 最近关闭的弹窗记录 */
 export interface RecentlyClosedPopup {
   popup: PopupData;
   closedAt: number;
 }
 
-/** 弹窗 Store 状态接口 */
 export interface PopupState {
-  /** 弹窗列表 */
   popups: PopupData[];
-  /** 正在加载的 Wiki ID */
-  loadingWikiId: string | null;
-  /** 当前活动的弹窗 ID */
   activePopupId: string | null;
-  /** 用户是否正在拖拽 */
   isUserDragging: boolean;
-  /** 最近关闭的弹窗 */
   recentlyClosedPopups: RecentlyClosedPopup[];
 
-  // Actions
-  /** 设置弹窗列表 */
+  // ================================================
+  // 新增：专为 Floating UI 悬浮卡片服务的响应式状态
+  // ================================================
+  hoveredElement: HTMLElement | null;
+  hoveredWikiId: string | null;
+
   setPopups: (popups: PopupData[]) => void;
-  /** 将弹窗置顶 */
   bringToFront: (id: string) => void;
-  /** 切换弹窗固定状态 */
   togglePin: (id: string) => void;
-  /** 切换弹窗最小化状态 */
   toggleMinimize: (id: string) => void;
-  /** 关闭弹窗 */
   closePopup: (id: string) => void;
-  /** 恢复弹窗 */
   restorePopup: (id: string) => void;
-  /** 设置加载中的 Wiki ID */
-  setLoadingWikiId: (id: string | null) => void;
-  /** 设置拖拽状态 */
   setIsUserDragging: (dragging: boolean) => void;
 
-  // 弹窗交互方法
-  /** 鼠标进入处理（打开弹窗） */
+  // ================================================
+  // 新增：极简的悬停状态控制动作
+  // ================================================
+  setHoveredLink: (element: HTMLElement | null, wikiId: string | null) => void;
+  pinHoveredLink: () => Promise<void>;
+
+  // 链接悬停处理
   handleMouseEnter: (
-    e: MouseEvent | React.MouseEvent<Element>,
+    event: MouseEvent | React.MouseEvent<Element>,
     wikiId: string,
     depth?: number
   ) => void;
-  /** 鼠标离开处理（关闭弹窗） */
   handleMouseLeave: (wikiId: string) => void;
-  /** 弹窗鼠标进入处理 */
-  handlePopoverMouseEnter: (wikiId: string) => void;
-  /** 弹窗鼠标离开处理 */
-  handlePopoverMouseLeave: (wikiId: string) => void;
-  /** 点击触发弹窗（触摸设备使用） */
+
+  // Popover 卡片悬停处理
+  handlePopoverMouseEnter: (id: string) => void;
+  handlePopoverMouseLeave: (id: string) => void;
+
+  // 链接点击处理
   handleClick: (wikiId: string, depth?: number) => void;
-  /** 弹窗位置变化处理 */
+
+  // 桌面拖拽与缩放事件
   handlePositionChange: (id: string, x: number, y: number) => Promise<void>;
-  /** 弹窗尺寸变化处理 */
   handleSizeChange: (id: string, width: number, height: number) => Promise<void>;
 }
-
-// ============================================================================
-// 弹窗固定元数据类型
-// ============================================================================
-
-export interface PinnedPopoverMetadata {
-  id: string;
-  isPinned: boolean;
-  isMinimized: boolean;
-}
-
-// ============================================================================
-// Popup Store 实现
-// ============================================================================
 
 export const usePopupStore = create<PopupState>()(
   persist(
     (set, get) => ({
-      // 初始状态
       popups: [],
-      loadingWikiId: null,
       activePopupId: null,
       isUserDragging: false,
       recentlyClosedPopups: [],
 
-      // Actions
-      setPopups: (popups) => set({ popups }),
+      // 临时悬停状态
+      hoveredElement: null,
+      hoveredWikiId: null,
 
+      setPopups: (popups) => set({ popups }),
       bringToFront: (id) => set({ activePopupId: id }),
 
       togglePin: (id) =>
@@ -213,222 +153,60 @@ export const usePopupStore = create<PopupState>()(
           };
         }),
 
-      setLoadingWikiId: (id) => set({ loadingWikiId: id }),
-
       setIsUserDragging: (dragging) => set({ isUserDragging: dragging }),
 
-      // 弹窗交互方法
-      handleMouseEnter: (e: MouseEvent | React.MouseEvent<Element>, wikiId: string, depth = 0) => {
-        const state = get();
-        if (state.isUserDragging) return;
-
-        const isTouch =
-          typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
-        if (isTouch) return;
-
-        timerManager.clearTimer(wikiId);
-        timerManager.clearTimer(`close-${wikiId}`);
-
-        set({ loadingWikiId: wikiId });
-
-        const clientX = e.clientX;
-        const clientY = e.clientY;
-
-        timerManager.setTimer(
-          wikiId,
-          async () => {
-            set({ loadingWikiId: null });
-
-            const currentPopups = get().popups;
-            if (currentPopups.some((p) => p.id === wikiId)) {
-              set({ activePopupId: wikiId });
-              return;
-            }
-
-            const docData = await getDocument(wikiId);
-            const savedState = await db.popoverStates.get(wikiId);
-
-            if (docData) {
-              let adjustedX = savedState?.x ?? clientX + window.scrollX;
-              let adjustedY = savedState?.y ?? clientY + window.scrollY + 20;
-              const defaultWidth = savedState?.width ?? DEFAULT_POPUP_CONFIG.width;
-              const defaultHeight = savedState?.height ?? DEFAULT_POPUP_CONFIG.height;
-
-              if (!savedState) {
-                adjustedX = adjustedX + depth * 25;
-                adjustedY = adjustedY + depth * 25;
-
-                if (adjustedX + defaultWidth > window.innerWidth) {
-                  adjustedX = window.innerWidth - defaultWidth - 24;
-                }
-                if (adjustedY + defaultHeight > window.innerHeight) {
-                  adjustedY = clientY + window.scrollY - defaultHeight - 20;
-                }
-              } else {
-                const boundedPosition = ensureWithinBounds(
-                  adjustedX,
-                  adjustedY,
-                  defaultWidth,
-                  defaultHeight
-                );
-                adjustedX = boundedPosition.x;
-                adjustedY = boundedPosition.y;
-              }
-
-              const newPopup: PopupData = {
-                id: wikiId,
-                title: docData.title,
-                excerpt: docData.content.substring(0, 180) + '...',
-                badge: docData.badge,
-                badgeClass: docData.badgeClass,
-                x: adjustedX,
-                y: adjustedY,
-                width: defaultWidth,
-                height: defaultHeight,
-                depth: Math.min(depth + 1, 5),
-                isPinned: false,
-                isMinimized: false,
-                history: [wikiId],
-                historyIndex: 0,
-              };
-
-              set({
-                popups: [...currentPopups.filter((p) => p.isPinned || p.depth <= depth), newPopup],
-                activePopupId: wikiId,
-              });
-
-              if (!savedState) {
-                await db.popoverStates.put({
-                  id: wikiId,
-                  x: adjustedX,
-                  y: adjustedY,
-                  width: defaultWidth,
-                  height: defaultHeight,
-                });
-              }
-            }
-          },
-          220
-        );
+      // ================================================
+      // 更新悬浮卡片引用，由 CodeMirror 驱动
+      // ================================================
+      setHoveredLink: (element, wikiId) => {
+        if (get().isUserDragging) return;
+        set({ hoveredElement: element, hoveredWikiId: wikiId });
       },
 
-      handleMouseLeave: (wikiId: string) => {
-        set({ loadingWikiId: null });
-        const state = get();
-        if (state.isUserDragging) return;
+      // ================================================
+      // 升格：将当前悬停卡片瞬间转化为永久的画布卡片
+      // ================================================
+      pinHoveredLink: async () => {
+        const { hoveredWikiId, popups } = get();
+        if (!hoveredWikiId) return;
 
-        timerManager.clearTimer(wikiId);
-
-        if (wikiId === 'any') {
-          timerManager.clearAllOpenTimers();
+        // 如果已经打开了，直接置顶
+        if (popups.some((p) => p.id === hoveredWikiId)) {
+          set({ activePopupId: hoveredWikiId, hoveredElement: null, hoveredWikiId: null });
           return;
         }
 
-        timerManager.setTimer(
-          `close-${wikiId}`,
-          () => {
-            set((state) => ({
-              popups: state.popups.filter((p) =>
-                p.id === wikiId && p.isPinned ? true : p.id !== wikiId
-              ),
-            }));
-          },
-          320
-        );
-      },
-
-      handlePopoverMouseEnter: (wikiId: string) => {
-        const state = get();
-        if (state.isUserDragging) return;
-        timerManager.clearTimer(`close-${wikiId}`);
-      },
-
-      handlePopoverMouseLeave: (wikiId: string) => {
-        get().handleMouseLeave(wikiId);
-      },
-
-      handleClick: async (wikiId: string, depth = 0) => {
-        const state = get();
-        if (state.isUserDragging) return;
-
-        timerManager.clearTimer(wikiId);
-        timerManager.clearTimer(`close-${wikiId}`);
-
-        set({ loadingWikiId: wikiId });
-
-        const currentPopups = get().popups;
-        const existingPopup = currentPopups.find((p) => p.id === wikiId);
-
-        if (existingPopup) {
-          set({ loadingWikiId: null, activePopupId: wikiId });
-          return;
-        }
-
-        const docData = await getDocument(wikiId);
-        const savedState = await db.popoverStates.get(wikiId);
-
+        const docData = await getDocument(hoveredWikiId);
         if (docData) {
-          const defaultWidth = savedState?.width ?? DEFAULT_POPUP_CONFIG.width;
-          const defaultHeight = savedState?.height ?? DEFAULT_POPUP_CONFIG.height;
-
-          let adjustedX = savedState?.x ?? DEFAULT_POPUP_CONFIG.offsetX + depth * 30;
-          let adjustedY = savedState?.y ?? DEFAULT_POPUP_CONFIG.offsetY + depth * 30;
-
-          if (!savedState) {
-            adjustedX = adjustedX + depth * 25;
-            adjustedY = adjustedY + depth * 25;
-
-            if (adjustedX + defaultWidth > window.innerWidth) {
-              adjustedX = window.innerWidth - defaultWidth - 24;
-            }
-            if (adjustedY + defaultHeight > window.innerHeight) {
-              adjustedY = window.innerHeight - defaultHeight - 24;
-            }
-          } else {
-            const boundedPosition = ensureWithinBounds(
-              adjustedX,
-              adjustedY,
-              defaultWidth,
-              defaultHeight
-            );
-            adjustedX = boundedPosition.x;
-            adjustedY = boundedPosition.y;
-          }
-
           const newPopup: PopupData = {
-            id: wikiId,
+            id: hoveredWikiId,
             title: docData.title,
             excerpt: docData.content.substring(0, 180) + '...',
             badge: docData.badge,
             badgeClass: docData.badgeClass,
-            x: adjustedX,
-            y: adjustedY,
-            width: defaultWidth,
-            height: defaultHeight,
-            depth: Math.min(depth + 1, 5),
-            isPinned: false,
+            x: 150, // 默认升格弹窗位置
+            y: 150,
+            width: DEFAULT_POPUP_CONFIG.width,
+            height: DEFAULT_POPUP_CONFIG.height,
+            depth: popups.length + 1,
+            isPinned: true, // 默认固定
             isMinimized: false,
-            history: [wikiId],
-            historyIndex: 0,
           };
 
           set({
-            popups: [...currentPopups.filter((p) => p.isPinned || p.depth <= depth), newPopup],
-            activePopupId: wikiId,
-            loadingWikiId: null,
+            popups: [...popups, newPopup],
+            activePopupId: hoveredWikiId,
+            hoveredElement: null, // 清空悬停引用，交给窗口系统接管
+            hoveredWikiId: null,
           });
 
-          if (!savedState) {
-            await db.popoverStates.put({
-              id: wikiId,
-              x: adjustedX,
-              y: adjustedY,
-              width: defaultWidth,
-              height: defaultHeight,
-            });
-          }
-        } else {
-          set({ loadingWikiId: null });
+          await db.popoverStates.put({
+            id: hoveredWikiId,
+            x: 150,
+            y: 150,
+            width: DEFAULT_POPUP_CONFIG.width,
+            height: DEFAULT_POPUP_CONFIG.height,
+          });
         }
       },
 
@@ -476,6 +254,63 @@ export const usePopupStore = create<PopupState>()(
             y: popup.y,
             width: constrainedSize.width,
             height: constrainedSize.height,
+          });
+        }
+      },
+
+      handleMouseEnter: (event, wikiId) => {
+        if (get().isUserDragging) return;
+        if (window.getSelection()?.toString().trim().length) return;
+        set({ hoveredElement: event.currentTarget as HTMLElement, hoveredWikiId: wikiId });
+      },
+
+      handleMouseLeave: () => {
+        set({ hoveredElement: null, hoveredWikiId: null });
+      },
+
+      handlePopoverMouseEnter: (id) => {
+        set({ activePopupId: id });
+      },
+
+      handlePopoverMouseLeave: () => {},
+
+      handleClick: async (wikiId) => {
+        const { popups } = get();
+        if (popups.some((p) => p.id === wikiId)) {
+          set({ activePopupId: wikiId, hoveredElement: null, hoveredWikiId: null });
+          return;
+        }
+
+        const docData = await getDocument(wikiId);
+        if (docData) {
+          const newPopup: PopupData = {
+            id: wikiId,
+            title: docData.title,
+            excerpt: docData.content.substring(0, 180) + '...',
+            badge: docData.badge,
+            badgeClass: docData.badgeClass,
+            x: 150,
+            y: 150,
+            width: DEFAULT_POPUP_CONFIG.width,
+            height: DEFAULT_POPUP_CONFIG.height,
+            depth: popups.length + 1,
+            isPinned: true,
+            isMinimized: false,
+          };
+
+          set({
+            popups: [...popups, newPopup],
+            activePopupId: wikiId,
+            hoveredElement: null,
+            hoveredWikiId: null,
+          });
+
+          await db.popoverStates.put({
+            id: wikiId,
+            x: 150,
+            y: 150,
+            width: DEFAULT_POPUP_CONFIG.width,
+            height: DEFAULT_POPUP_CONFIG.height,
           });
         }
       },

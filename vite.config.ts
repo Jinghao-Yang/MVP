@@ -34,7 +34,7 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             'react-vendor': ['react', 'react-dom'],
             'codemirror': ['@uiw/react-codemirror', '@codemirror/lang-markdown', '@codemirror/view'],
-            'dnd-kit': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+            'dnd-kit': ['@dnd-kit/core', '@dnd-kit/utilities'],
             'other-vendor': ['lucide-react', 'motion/react', 'dexie', 'zustand'],
           },
         },
