@@ -110,20 +110,13 @@ class AxiomDatabase extends Dexie {
 
   constructor() {
     super('AxiomDatabase');
-    this.version(2)
-      .stores({
-        documents: 'id, title, badge',
-        kanbanCards: 'id, columnId, order',
-        popoverStates: 'id',
-        links: '++id, sourceId, targetId',
-        config: 'id',
-      })
-      .upgrade(async (tx) => {
-        const configTable = tx.table('config') as Table<ConfigEntity>;
-        if ((await configTable.count()) === 0) {
-          await configTable.add({ id: 'app-config', schemaVersion: 2 });
-        }
-      });
+    this.version(2).stores({
+      documents: 'id, title, badge',
+      kanbanCards: 'id, columnId, order',
+      popoverStates: 'id',
+      links: '++id, sourceId, targetId',
+      config: 'id',
+    });
 
     this.version(1).stores({
       documents: 'id, title, badge',

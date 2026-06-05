@@ -100,17 +100,20 @@ export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorCont
   // 历史导航方法
   // ================================================
 
-  const loadWikiContent = useCallback(async (wikiId: string) => {
-    try {
-      const data = await documentService.getDocument(wikiId);
-      if (data) {
-        setDocumentText(data.content);
-        dispatchHistory({ type: 'LOAD_WIKI', wikiId });
+  const loadWikiContent = useCallback(
+    async (wikiId: string) => {
+      try {
+        const data = await documentService.getDocument(wikiId);
+        if (data) {
+          setDocumentText(data.content);
+          dispatchHistory({ type: 'LOAD_WIKI', wikiId });
+        }
+      } catch (error) {
+        console.error('Failed to load wiki content:', error);
       }
-    } catch (error) {
-      console.error('Failed to load wiki content:', error);
-    }
-  }, [setDocumentText]);
+    },
+    [setDocumentText]
+  );
 
   const goBack = useCallback(async () => {
     if (!canGoBack()) return;

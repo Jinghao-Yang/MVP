@@ -1,20 +1,26 @@
 import { useState, useMemo } from 'react';
 import { DndContext, DragEndEvent } from '@dnd-kit/core';
 import { Database, Sparkles, AlertCircle, X } from 'lucide-react';
-import { useKanbanStore } from '@/stores/kanban-store';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/db/dexie';
 import { type KanbanCardEntity } from '@/types';
 import { LedgerColumn } from './components/LedgerColumn';
+import { useKanbanStore } from '@/stores/kanban-store';
 
 export function KanbanBoard() {
   const [isSynthesizing, setIsSynthesizing] = useState(false);
 
-  const kanbanCards = useKanbanStore((state) => state.kanbanCards);
+  const kanbanCards = useLiveQuery(() => db.kanbanCards.toArray(), []);
   const updateCardColumn = useKanbanStore((state) => state.updateCardColumn);
   const error = useKanbanStore((state) => state.error);
-  const loading = useKanbanStore((state) => state.loading);
   const clearError = useKanbanStore((state) => state.clearError);
 
+  const isLoading = kanbanCards === undefined;
+
   const kanbanData = useMemo(() => {
+    if (!kanbanCards) {
+      return { fleeting: [], seedling: [], evergreen: [], synthesis: [] };
+    }
     return {
       fleeting: kanbanCards.filter((c: KanbanCardEntity) => c.columnId === 'fleeting'),
       seedling: kanbanCards.filter((c: KanbanCardEntity) => c.columnId === 'seedling'),
@@ -71,7 +77,7 @@ export function KanbanBoard() {
       )}
 
       <div className="flex-1 border border-neutral-200 shadow-sm bg-white overflow-hidden min-h-[600px] flex flex-col rounded-xl">
-        {loading ? (
+        {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="flex flex-col items-center gap-4">
               <div className="loading-spinner w-10 h-10" />

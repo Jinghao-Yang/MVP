@@ -1,11 +1,11 @@
 import { create } from 'zustand';
-import type { KanbanCardEntity } from '@/types';
 import {
   getKanbanCards,
   updateCardColumn as dbUpdateCardColumn,
   addQuickCaptureNote,
 } from '@/db/cards';
 import { useUiStore } from '@/stores/ui-store';
+import type { KanbanCardEntity } from '@/types';
 
 const showError = (message: string) => {
   useUiStore.getState().setStatus(message);
@@ -15,7 +15,6 @@ export interface KanbanState {
   kanbanCards: KanbanCardEntity[];
   quickCaptureText: string;
   error: string | null;
-  loading: boolean;
 
   loadKanbanCards: () => Promise<void>;
   updateCardColumn: (cardId: string, newColumnId: string) => Promise<void>;
@@ -28,17 +27,15 @@ export const useKanbanStore = create<KanbanState>()((set, get) => ({
   kanbanCards: [],
   quickCaptureText: '',
   error: null,
-  loading: false,
 
   loadKanbanCards: async () => {
     try {
-      set({ loading: true, error: null });
       const cards = await getKanbanCards();
-      set({ kanbanCards: cards, loading: false });
-    } catch (err) {
-      console.error('Failed to load kanban cards:', err);
-      const errorMsg = 'Failed to load kanban cards. Please try again.';
-      set({ error: errorMsg, loading: false });
+      set({ kanbanCards: cards });
+    } catch (error) {
+      console.error('Failed to load kanban cards:', error);
+      const errorMsg = 'Failed to load cards. Please try again.';
+      set({ error: errorMsg });
       showError(errorMsg);
     }
   },

@@ -10,10 +10,26 @@ import type { DocumentEntity } from '@/types';
 import { useUiStore } from '@/stores/ui-store';
 
 /**
+ * 文档内容大小限制（10万字，约 2MB）
+ */
+const MAX_DOCUMENT_SIZE = 100000;
+
+/**
  * 显示数据库错误提示
  */
 const showStorageError = (message: string) => {
   useUiStore.getState().setStatus(`Storage error: ${message}`);
+};
+
+/**
+ * 显示内容大小警告
+ */
+const showContentSizeWarning = () => {
+  useUiStore
+    .getState()
+    .setStatus(
+      `Document size exceeded ${MAX_DOCUMENT_SIZE.toLocaleString()} characters. Please reduce content.`
+    );
 };
 
 /**
@@ -78,6 +94,13 @@ export const documentService = {
    */
   async updateDocumentContent(id: string, content: string): Promise<void> {
     try {
+      if (content.length > MAX_DOCUMENT_SIZE) {
+        showContentSizeWarning();
+        throw new Error(
+          `Document content exceeds ${MAX_DOCUMENT_SIZE.toLocaleString()} characters`
+        );
+      }
+
       const doc = await documentsDb.getDocument(id);
       if (!doc) {
         throw new Error(`文档不存在: ${id}`);
@@ -85,7 +108,9 @@ export const documentService = {
       await documentsDb.updateDocumentContent(id, content);
     } catch (error) {
       console.error('Failed to update document content:', error);
-      showStorageError('Failed to save document');
+      if (!(error instanceof Error && error.message.includes('exceeds'))) {
+        showStorageError('Failed to save document');
+      }
       throw error;
     }
   },

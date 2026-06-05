@@ -6,12 +6,7 @@
 // ============================================================================
 // UI Store - 管理 UI 状态（侧边栏、禅模式、命令面板等）
 // ============================================================================
-export {
-  useUiStore,
-  type UiState,
-  type RecentlyClosedPopup,
-  type PinnedPopoverMetadata,
-} from './ui-store';
+export { useUiStore, type UiState } from './ui-store';
 
 // ============================================================================
 // Popup Store - 管理弹窗状态

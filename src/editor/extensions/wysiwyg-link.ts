@@ -63,6 +63,34 @@ export interface LinkEvent {
 }
 
 export const wysiwygLinkExtension = (onLinkEvent: (event: LinkEvent) => void) => {
+  let rafId: number | null = null;
+  let lastEvent: MouseEvent | null = null;
+
+  const processMouseMove = () => {
+    if (lastEvent) {
+      const target = lastEvent.target as HTMLElement;
+      if (target.classList.contains('cm-wysiwyg-link')) {
+        const linkTarget = target.getAttribute('data-target');
+        const linkLabel = target.getAttribute('data-label');
+        if (linkTarget) {
+          onLinkEvent({
+            type: 'link-hover',
+            target: linkTarget,
+            label: linkLabel || '',
+            event: lastEvent,
+          });
+          rafId = null;
+          lastEvent = null;
+          return;
+        }
+      }
+
+      onLinkEvent({ type: 'link-leave', target: '', label: '' });
+      rafId = null;
+      lastEvent = null;
+    }
+  };
+
   return EditorView.domEventHandlers({
     click: (event, _view) => {
       const target = event.target as HTMLElement;
@@ -84,25 +112,18 @@ export const wysiwygLinkExtension = (onLinkEvent: (event: LinkEvent) => void) =>
     },
 
     mousemove: (event, _view) => {
-      const target = event.target as HTMLElement;
-      if (target.classList.contains('cm-wysiwyg-link')) {
-        const linkTarget = target.getAttribute('data-target');
-        const linkLabel = target.getAttribute('data-label');
-        if (linkTarget) {
-          onLinkEvent({
-            type: 'link-hover',
-            target: linkTarget,
-            label: linkLabel || '',
-            event,
-          });
-          return;
-        }
+      lastEvent = event;
+      if (rafId === null) {
+        rafId = requestAnimationFrame(processMouseMove);
       }
-
-      onLinkEvent({ type: 'link-leave', target: '', label: '' });
     },
 
     mouseleave: () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+        lastEvent = null;
+      }
       onLinkEvent({ type: 'link-leave', target: '', label: '' });
     },
   });

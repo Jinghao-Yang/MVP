@@ -3,9 +3,12 @@
    ================================================ */
 import { useState, useReducer, useCallback, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, BookOpen, Link2, Check, AlertCircle } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { MarkdownEditor } from './MarkdownEditor';
 import { documentService } from '@/services/document-service';
 import { useUiStore } from '@/stores/ui-store';
+import { db } from '@/db/dexie';
+import type { DocumentEntity } from '@/types';
 
 type SaveStatus = 'saved' | 'saving' | 'error';
 
@@ -32,7 +35,6 @@ const historyReducer = (state: HistoryState, action: HistoryAction): HistoryStat
       if (newHistory[newHistory.length - 1] !== action.wikiId) {
         newHistory.push(action.wikiId);
       }
-      // 修剪历史记录，保持最大长度
       const trimmedHistory =
         newHistory.length > MAX_HISTORY_LENGTH ? newHistory.slice(-MAX_HISTORY_LENGTH) : newHistory;
       return {
@@ -60,11 +62,6 @@ export function EditorRightPane() {
   // 组件内部状态
   // ================================================
 
-  // 文档内容状态
-  const [rightPaneWikiTitle, setRightPaneWikiTitle] = useState('');
-  const [rightPaneWikiContent, setRightPaneWikiContent] = useState('');
-  const [rightPaneBacklinks, setRightPaneBacklinks] = useState<string[]>([]);
-
   // 保存状态
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
 
@@ -78,11 +75,45 @@ export function EditorRightPane() {
   const currentWikiId = useUiStore((state) => state.currentWikiId);
   const setCurrentWikiId = useUiStore((state) => state.setCurrentWikiId);
 
+  // 使用 useLiveQuery 订阅文档数据
+  const currentDocument = useLiveQuery(
+    () => (currentWikiId ? db.documents.get(currentWikiId) : Promise.resolve(undefined)),
+    [currentWikiId]
+  );
+
+  // 本地编辑状态
+  const [localContent, setLocalContent] = useState('');
+  const [localTitle, setLocalTitle] = useState('');
+
+  // 反向链接（仍使用 documentService，因为这是派生数据）
+  const [rightPaneBacklinks, setRightPaneBacklinks] = useState<string[]>([]);
+
   // 原始内容引用，用于检测是否有未保存的更改
   const originalContentRef = useRef<string>('');
 
+  // 同步文档数据到本地状态
+  useEffect(() => {
+    if (currentDocument) {
+      const doc = currentDocument as unknown as DocumentEntity;
+      setLocalTitle(doc.title);
+      if (!hasUnsavedChanges) {
+        setLocalContent(doc.content);
+        originalContentRef.current = doc.content;
+      }
+    }
+  }, [currentDocument]);
+
+  // 加载反向链接
+  useEffect(() => {
+    if (currentWikiId) {
+      documentService.getBacklinks(currentWikiId).then(setRightPaneBacklinks).catch(console.error);
+    } else {
+      setRightPaneBacklinks([]);
+    }
+  }, [currentWikiId]);
+
   // 标记是否有未保存的更改
-  const hasUnsavedChanges = rightPaneWikiContent !== originalContentRef.current;
+  const hasUnsavedChanges = localContent !== originalContentRef.current;
 
   // ================================================
   // 历史导航判断
@@ -102,18 +133,10 @@ export function EditorRightPane() {
   const loadWikiContent = useCallback(
     async (wikiId: string) => {
       try {
-        const data = await documentService.getDocument(wikiId);
-        if (data) {
-          const backlinks = await documentService.getBacklinks(wikiId);
-          setRightPaneWikiTitle(data.title);
-          setRightPaneWikiContent(data.content);
-          setRightPaneBacklinks(backlinks);
-          setCurrentWikiId(wikiId);
-          dispatchHistory({ type: 'LOAD_WIKI', wikiId });
-          // 保存原始内容引用
-          originalContentRef.current = data.content;
-          setSaveStatus('saved');
-        }
+        setCurrentWikiId(wikiId);
+        dispatchHistory({ type: 'LOAD_WIKI', wikiId });
+        const backlinks = await documentService.getBacklinks(wikiId);
+        setRightPaneBacklinks(backlinks);
       } catch (error) {
         console.error('Failed to load wiki content:', error);
       }
@@ -131,15 +154,8 @@ export function EditorRightPane() {
     try {
       const newIndex = historyState.historyIndex - 1;
       const wikiId = historyState.documentHistory[newIndex];
-      const data = await documentService.getDocument(wikiId);
-      if (data) {
-        const backlinks = await documentService.getBacklinks(wikiId);
-        setRightPaneWikiTitle(data.title);
-        setRightPaneWikiContent(data.content);
-        setRightPaneBacklinks(backlinks);
-        setCurrentWikiId(wikiId);
-        dispatchHistory({ type: 'GO_BACK' });
-      }
+      setCurrentWikiId(wikiId);
+      dispatchHistory({ type: 'GO_BACK' });
     } catch (error) {
       console.error('Failed to navigate back:', error);
     }
@@ -151,15 +167,8 @@ export function EditorRightPane() {
     try {
       const newIndex = historyState.historyIndex + 1;
       const wikiId = historyState.documentHistory[newIndex];
-      const data = await documentService.getDocument(wikiId);
-      if (data) {
-        const backlinks = await documentService.getBacklinks(wikiId);
-        setRightPaneWikiTitle(data.title);
-        setRightPaneWikiContent(data.content);
-        setRightPaneBacklinks(backlinks);
-        setCurrentWikiId(wikiId);
-        dispatchHistory({ type: 'GO_FORWARD' });
-      }
+      setCurrentWikiId(wikiId);
+      dispatchHistory({ type: 'GO_FORWARD' });
     } catch (error) {
       console.error('Failed to navigate forward:', error);
     }
@@ -170,7 +179,7 @@ export function EditorRightPane() {
   // ================================================
 
   const handleContentChange = useCallback((content: string) => {
-    setRightPaneWikiContent(content);
+    setLocalContent(content);
   }, []);
 
   // ================================================
@@ -182,14 +191,14 @@ export function EditorRightPane() {
 
     try {
       setSaveStatus('saving');
-      await documentService.updateDocumentContent(currentWikiId, rightPaneWikiContent);
-      originalContentRef.current = rightPaneWikiContent;
+      await documentService.updateDocumentContent(currentWikiId, localContent);
+      originalContentRef.current = localContent;
       setSaveStatus('saved');
     } catch (error) {
       console.error('Failed to save document:', error);
       setSaveStatus('error');
     }
-  }, [currentWikiId, rightPaneWikiContent, hasUnsavedChanges]);
+  }, [currentWikiId, localContent, hasUnsavedChanges]);
 
   // ================================================
   // 组件卸载前强制保存
@@ -198,12 +207,10 @@ export function EditorRightPane() {
   useEffect(() => {
     return () => {
       if (hasUnsavedChanges && currentWikiId) {
-        documentService
-          .updateDocumentContent(currentWikiId, rightPaneWikiContent)
-          .catch(console.error);
+        documentService.updateDocumentContent(currentWikiId, localContent).catch(console.error);
       }
     };
-  }, [currentWikiId, rightPaneWikiContent, hasUnsavedChanges]);
+  }, [currentWikiId, localContent, hasUnsavedChanges]);
 
   // ================================================
   // 失焦时保存
@@ -223,7 +230,7 @@ export function EditorRightPane() {
       style={{ width: '480px' }}
       className="bg-white/40 backdrop-blur-xl flex flex-col shrink-0 border-l border-neutral-200/60 h-full overflow-hidden transition-all duration-300"
     >
-      {currentWikiId ? (
+      {currentWikiId && currentDocument ? (
         <div className="flex-1 flex flex-col h-full animate-in fade-in duration-300">
           {/* 对照控制栏 */}
           <header className="h-14 px-6 border-b border-black/5 flex items-center justify-between shrink-0 bg-neutral-50/50">
@@ -272,13 +279,13 @@ export function EditorRightPane() {
               <span className="font-mono text-[10px] uppercase text-bh-red font-bold tracking-wider mb-2 block">
                 CARD INDEX // {currentWikiId.toUpperCase()}
               </span>
-              <h3 className="font-human text-2xl font-bold text-black">{rightPaneWikiTitle}</h3>
+              <h3 className="font-human text-2xl font-bold text-black">{localTitle}</h3>
             </div>
 
             <div className="prose-split text-[14.5px] leading-relaxed">
               <MarkdownEditor
                 docId={currentWikiId}
-                value={rightPaneWikiContent}
+                value={localContent}
                 onChange={handleContentChange}
                 onBlur={handleBlur}
               />

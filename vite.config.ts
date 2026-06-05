@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
         '@/stores': path.resolve(__dirname, './src/stores'),
         '@/db': path.resolve(__dirname, './src/db'),
         '@/hooks': path.resolve(__dirname, './src/hooks'),
-        '@/types': path.resolve(__dirname, './src/@types'),
+        '@/types': path.resolve(__dirname, './src/types'),
         '@/data': path.resolve(__dirname, './src/data'),
       },
     },

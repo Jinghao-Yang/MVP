@@ -42,27 +42,26 @@ export function PopupManager() {
     return popups.filter((p: PopupData) => !p.isMinimized);
   }, [popups]);
 
-  // RAF 节流：记录上次更新时间戳
-  const lastUpdateRef = useRef<number>(0);
+  const lastUpdateRef = useRef<Map<string, number>>(new Map());
 
-  // 节流 position 变化事件，约 60fps
   const throttledPositionChange = useCallback(
     (id: string, x: number, y: number) => {
       const now = performance.now();
-      if (now - lastUpdateRef.current >= 16) {
-        lastUpdateRef.current = now;
+      const lastUpdate = lastUpdateRef.current.get(id) || 0;
+      if (now - lastUpdate >= 16) {
+        lastUpdateRef.current.set(id, now);
         handlePositionChange(id, x, y);
       }
     },
     [handlePositionChange]
   );
 
-  // 节流 size 变化事件，约 60fps
   const throttledSizeChange = useCallback(
     (id: string, w: number, h: number) => {
       const now = performance.now();
-      if (now - lastUpdateRef.current >= 16) {
-        lastUpdateRef.current = now;
+      const lastUpdate = lastUpdateRef.current.get(id) || 0;
+      if (now - lastUpdate >= 16) {
+        lastUpdateRef.current.set(id, now);
         handleSizeChange(id, w, h);
       }
     },

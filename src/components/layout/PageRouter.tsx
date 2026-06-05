@@ -24,7 +24,7 @@ export function PageRouter({ isSidebarActiveCollapsed }: PageRouterProps) {
 
   return (
     <div
-      className={`main-content transition-[margin-left] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+      className={`main-content transition-[margin-left] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
         isSidebarActiveCollapsed ? 'ml-4' : 'ml-[256px]'
       }`}
       id="main-content"

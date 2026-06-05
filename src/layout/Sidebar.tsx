@@ -105,7 +105,7 @@ function SidebarComponent({
           opacity: isExpanded ? 1 : 0,
           pointerEvents: isExpanded ? 'auto' : 'none',
           transition:
-            'width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease',
+            'width 0.3s cubic-bezier(0.25, 1, 0.5, 1), transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s cubic-bezier(0.25, 1, 0.5, 1)',
           position: 'fixed',
           zIndex: 'var(--z-sidebar)',
           boxShadow: isExpanded ? '24px 0px 80px -12px rgba(28, 28, 26, 0.08)' : 'none',

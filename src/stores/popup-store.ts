@@ -32,16 +32,25 @@ const DEFAULT_POPUP_CONFIG = {
 
 /**
  * 确保位置在屏幕边界内
+ * @param x - X 坐标
+ * @param y - Y 坐标
+ * @param width - 弹窗实际宽度
+ * @param height - 弹窗实际高度
  */
-function ensureWithinBounds(x: number, y: number): { x: number; y: number } {
+function ensureWithinBounds(
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): { x: number; y: number } {
   if (typeof window !== 'undefined') {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    const maxX = viewportWidth - DEFAULT_POPUP_CONFIG.minWidth;
+    const maxX = viewportWidth - width;
     const boundedX = Math.max(0, Math.min(x, maxX));
 
-    const maxY = viewportHeight - DEFAULT_POPUP_CONFIG.minHeight;
+    const maxY = viewportHeight - height;
     const boundedY = Math.max(0, Math.min(y, maxY));
 
     return { x: boundedX, y: boundedY };
@@ -171,7 +180,9 @@ export const usePopupStore = create<PopupState>()(
 
       toggleMinimize: (id) =>
         set((state) => ({
-          popups: state.popups.map((p) => (p.id === id ? { ...p, isMinimized: !p.isMinimized } : p)),
+          popups: state.popups.map((p) =>
+            p.id === id ? { ...p, isMinimized: !p.isMinimized } : p
+          ),
         })),
 
       closePopup: (id) =>
@@ -211,7 +222,8 @@ export const usePopupStore = create<PopupState>()(
         const state = get();
         if (state.isUserDragging) return;
 
-        const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+        const isTouch =
+          typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
         if (isTouch) return;
 
         timerManager.clearTimer(wikiId);
@@ -253,7 +265,12 @@ export const usePopupStore = create<PopupState>()(
                   adjustedY = clientY + window.scrollY - defaultHeight - 20;
                 }
               } else {
-                const boundedPosition = ensureWithinBounds(adjustedX, adjustedY);
+                const boundedPosition = ensureWithinBounds(
+                  adjustedX,
+                  adjustedY,
+                  defaultWidth,
+                  defaultHeight
+                );
                 adjustedX = boundedPosition.x;
                 adjustedY = boundedPosition.y;
               }
@@ -368,7 +385,12 @@ export const usePopupStore = create<PopupState>()(
               adjustedY = window.innerHeight - defaultHeight - 24;
             }
           } else {
-            const boundedPosition = ensureWithinBounds(adjustedX, adjustedY);
+            const boundedPosition = ensureWithinBounds(
+              adjustedX,
+              adjustedY,
+              defaultWidth,
+              defaultHeight
+            );
             adjustedX = boundedPosition.x;
             adjustedY = boundedPosition.y;
           }
@@ -411,7 +433,10 @@ export const usePopupStore = create<PopupState>()(
       },
 
       handlePositionChange: async (id, x, y) => {
-        const boundedPosition = ensureWithinBounds(x, y);
+        const currentPopup = get().popups.find((p) => p.id === id);
+        const width = currentPopup?.width ?? DEFAULT_POPUP_CONFIG.width;
+        const height = currentPopup?.height ?? DEFAULT_POPUP_CONFIG.height;
+        const boundedPosition = ensureWithinBounds(x, y, width, height);
         set((state) => ({
           popups: state.popups.map((p) =>
             p.id === id ? { ...p, x: boundedPosition.x, y: boundedPosition.y, isPinned: true } : p
@@ -434,7 +459,12 @@ export const usePopupStore = create<PopupState>()(
         set((state) => ({
           popups: state.popups.map((p) =>
             p.id === id
-              ? { ...p, width: constrainedSize.width, height: constrainedSize.height, isPinned: true }
+              ? {
+                  ...p,
+                  width: constrainedSize.width,
+                  height: constrainedSize.height,
+                  isPinned: true,
+                }
               : p
           ),
         }));
