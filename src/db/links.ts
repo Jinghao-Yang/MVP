@@ -30,10 +30,13 @@ function parseMarkdownLinks(sourceId: string, text: string): BidirectionalLinkEn
  */
 export async function updateDocumentLinks(sourceId: string, content: string): Promise<void> {
   const extractedLinks = parseMarkdownLinks(sourceId, content);
-  await db.links.where({ sourceId }).delete();
-  if (extractedLinks.length > 0) {
-    await db.links.bulkAdd(extractedLinks);
-  }
+
+  await db.transaction('rw', db.links, async () => {
+    await db.links.where({ sourceId }).delete();
+    if (extractedLinks.length > 0) {
+      await db.links.bulkAdd(extractedLinks);
+    }
+  });
 }
 
 /**
@@ -62,13 +65,4 @@ export async function getForwardLinks(sourceId: string): Promise<string[]> {
  */
 export async function getAllLinks(): Promise<BidirectionalLinkEntity[]> {
   return await db.links.toArray();
-}
-
-/**
- * 删除文档的所有链接关系
- * @param docId - 文档 ID
- */
-export async function deleteDocumentLinks(docId: string): Promise<void> {
-  await db.links.where({ sourceId: docId }).delete();
-  await db.links.where({ targetId: docId }).delete();
 }

@@ -7,7 +7,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type React from 'react';
 import type { PopupData } from '@/types';
 import { db, seedDatabase } from '@/db/dexie';
-import { getDocument, updateDocumentContent, getBacklinks } from '@/db/documents';
+import { documentService } from '@/services/document-service';
 
 // ============================================
 // UI 状态类型定义
@@ -35,7 +35,7 @@ export interface PinnedPopoverMetadata {
  */
 export interface UiState {
   // ============================================
-  // 核心 UI 状态（任务要求提取的状态）
+  // 核心 UI 状态
   // ============================================
   /** 当前活动页面 */
   activePage: string;
@@ -53,7 +53,24 @@ export interface UiState {
   isSidebarPinned: boolean;
 
   // ============================================
-  // 核心 UI Actions（任务要求提取的方法）
+  // 跨组件共享状态
+  // ============================================
+  /** 当前打开的 Wiki ID */
+  currentWikiId: string | null;
+  /** 主编辑器文档文本 */
+  documentText: string;
+
+  // ============================================
+  // 弹窗状态
+  // ============================================
+  popups: PopupData[];
+  loadingWikiId: string | null;
+  activePopupId: string | null;
+  isUserDragging: boolean;
+  recentlyClosedPopups: RecentlyClosedPopup[];
+
+  // ============================================
+  // 核心 UI Actions
   // ============================================
   /** 设置活动页面 */
   setActivePage: (page: string) => void;
@@ -69,39 +86,15 @@ export interface UiState {
   toggleSidebarPin: () => void;
 
   // ============================================
-  // 文档编辑状态（保持向后兼容）
+  // 跨组件共享 Actions
   // ============================================
-  currentWikiId: string | null;
-  rightPaneWikiTitle: string;
-  rightPaneWikiContent: string;
-  rightPaneBacklinks: string[];
-  documentText: string;
-  documentHistory: string[];
-  historyIndex: number;
-
-  // ============================================
-  // 弹窗状态（保持向后兼容）
-  // ============================================
-  popups: PopupData[];
-  loadingWikiId: string | null;
-  activePopupId: string | null;
-  isUserDragging: boolean;
-  recentlyClosedPopups: RecentlyClosedPopup[];
-
-  // ============================================
-  // 文档编辑 Actions（保持向后兼容）
-  // ============================================
+  /** 设置当前 Wiki ID */
   setCurrentWikiId: (id: string | null) => void;
+  /** 设置文档文本 */
   setDocumentText: (text: string) => void;
-  setRightPaneWikiContent: (text: string) => void;
-  loadWikiContent: (wikiId: string) => Promise<void>;
-  goBack: () => Promise<void>;
-  goForward: () => Promise<void>;
-  canGoBack: () => boolean;
-  canGoForward: () => boolean;
 
   // ============================================
-  // 弹窗 Actions（保持向后兼容）
+  // 弹窗 Actions
   // ============================================
   setIsUserDragging: (dragging: boolean) => void;
   setPopups: (popups: PopupData[]) => void;
@@ -124,22 +117,16 @@ export interface UiState {
   handleSizeChange: (id: string, width: number, height: number) => Promise<void>;
 
   // ============================================
-  // 初始化方法（保持向后兼容）
+  // 初始化方法
   // ============================================
   initializeWorkspace: () => Promise<void>;
 }
-
-// ============================================
-// 状态持久化配置
-// ============================================
 
 // ============================================
 // 定时器管理
 // ============================================
 
 const hoverTimers = new Map<string, ReturnType<typeof setTimeout>>();
-let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-let rightPaneDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let statusTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // ============================================
@@ -165,15 +152,10 @@ export const useUiStore = create<UiState>()(
       isSidebarPinned: false,
 
       // ============================================
-      // 文档编辑状态初始值
+      // 跨组件共享状态初始值
       // ============================================
       currentWikiId: null,
-      rightPaneWikiTitle: '',
-      rightPaneWikiContent: '',
-      rightPaneBacklinks: [],
       documentText: '',
-      documentHistory: [],
-      historyIndex: -1,
 
       // ============================================
       // 弹窗状态初始值
@@ -209,87 +191,11 @@ export const useUiStore = create<UiState>()(
       toggleSidebarPin: () => set((state) => ({ isSidebarPinned: !state.isSidebarPinned })),
 
       // ============================================
-      // 文档编辑 Actions 实现
+      // 跨组件共享 Actions 实现
       // ============================================
       setCurrentWikiId: (id) => set({ currentWikiId: id }),
 
-      setDocumentText: (text) => {
-        set({ documentText: text });
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(async () => {
-          await updateDocumentContent('main-editor-doc', text);
-        }, 450);
-      },
-
-      setRightPaneWikiContent: (text) => {
-        set({ rightPaneWikiContent: text });
-        if (rightPaneDebounceTimer) clearTimeout(rightPaneDebounceTimer);
-        rightPaneDebounceTimer = setTimeout(async () => {
-          const wikiId = get().currentWikiId;
-          if (wikiId) {
-            await updateDocumentContent(wikiId, text);
-          }
-        }, 450);
-      },
-
-      loadWikiContent: async (wikiId) => {
-        const state = get();
-        const data = await getDocument(wikiId);
-        if (data) {
-          const backlinks = await getBacklinks(wikiId);
-          const newHistory = state.documentHistory.slice(0, state.historyIndex + 1);
-          newHistory.push(wikiId);
-          set({
-            rightPaneWikiTitle: data.title,
-            rightPaneWikiContent: data.content,
-            rightPaneBacklinks: backlinks,
-            documentHistory: newHistory,
-            historyIndex: newHistory.length - 1,
-            currentWikiId: wikiId,
-          });
-        }
-      },
-
-      goBack: async () => {
-        const state = get();
-        if (state.historyIndex > 0) {
-          const newIndex = state.historyIndex - 1;
-          const wikiId = state.documentHistory[newIndex];
-          const data = await getDocument(wikiId);
-          if (data) {
-            const backlinks = await getBacklinks(wikiId);
-            set({
-              rightPaneWikiTitle: data.title,
-              rightPaneWikiContent: data.content,
-              rightPaneBacklinks: backlinks,
-              historyIndex: newIndex,
-              currentWikiId: wikiId,
-            });
-          }
-        }
-      },
-
-      goForward: async () => {
-        const state = get();
-        if (state.historyIndex < state.documentHistory.length - 1) {
-          const newIndex = state.historyIndex + 1;
-          const wikiId = state.documentHistory[newIndex];
-          const data = await getDocument(wikiId);
-          if (data) {
-            const backlinks = await getBacklinks(wikiId);
-            set({
-              rightPaneWikiTitle: data.title,
-              rightPaneWikiContent: data.content,
-              rightPaneBacklinks: backlinks,
-              historyIndex: newIndex,
-              currentWikiId: wikiId,
-            });
-          }
-        }
-      },
-
-      canGoBack: () => get().historyIndex > 0,
-      canGoForward: () => get().historyIndex < get().documentHistory.length - 1,
+      setDocumentText: (text) => set({ documentText: text }),
 
       // ============================================
       // 弹窗 Actions 实现
@@ -347,6 +253,10 @@ export const useUiStore = create<UiState>()(
       handleMouseEnter: (e: MouseEvent | React.MouseEvent<Element>, wikiId: string, depth = 0) => {
         if (get().isUserDragging) return;
 
+        const isTouch =
+          typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+        if (isTouch) return;
+
         const existingOpen = hoverTimers.get(wikiId);
         if (existingOpen) {
           clearTimeout(existingOpen);
@@ -373,7 +283,7 @@ export const useUiStore = create<UiState>()(
             return;
           }
 
-          const docData = await getDocument(wikiId);
+          const docData = await documentService.getDocument(wikiId);
           const savedState = await db.popoverStates.get(wikiId);
 
           if (docData) {
@@ -404,7 +314,7 @@ export const useUiStore = create<UiState>()(
               y: adjustedY,
               width: defaultWidth,
               height: defaultHeight,
-              depth: depth + 1,
+              depth: Math.min(depth + 1, 5),
               isPinned: false,
               isMinimized: false,
               history: [wikiId],
@@ -507,7 +417,7 @@ export const useUiStore = create<UiState>()(
       initializeWorkspace: async () => {
         await seedDatabase();
 
-        let leftDoc = await getDocument('main-editor-doc');
+        let leftDoc = await documentService.getDocument('main-editor-doc');
         if (!leftDoc) {
           leftDoc = {
             id: 'main-editor-doc',
@@ -522,20 +432,6 @@ export const useUiStore = create<UiState>()(
 
         set({ documentText: leftDoc.content });
 
-        const activeId = get().currentWikiId;
-        if (activeId) {
-          const doc = await getDocument(activeId);
-          if (doc) {
-            const backlinks = await getBacklinks(activeId);
-            set({
-              rightPaneWikiTitle: doc.title,
-              rightPaneWikiContent: doc.content,
-              rightPaneBacklinks: backlinks,
-              currentWikiId: activeId,
-            });
-          }
-        }
-
         const state = get();
         const storedMetadata =
           ('pinnedPopoverMetadata' in state
@@ -544,7 +440,7 @@ export const useUiStore = create<UiState>()(
             : []) || [];
         const restoredPopups: PopupData[] = [];
         for (const meta of storedMetadata) {
-          const docData = await getDocument(meta.id);
+          const docData = await documentService.getDocument(meta.id);
           const popoverPos = await db.popoverStates.get(meta.id);
           if (docData) {
             restoredPopups.push({
@@ -585,12 +481,3 @@ export const useUiStore = create<UiState>()(
     }
   )
 );
-
-// ============================================
-// 向后兼容别名
-// ============================================
-
-/** @deprecated 使用 useUiStore 代替 */
-export type AppStore = UiState;
-/** @deprecated 使用 useUiStore 代替 */
-export const useAppStore = useUiStore;

@@ -24,7 +24,7 @@ export const EditorSidebar = memo(function EditorSidebar({ isZenMode }: EditorSi
         </div>
 
         <div className="bg-white/50 border border-neutral-200/50 p-4 rounded-xl space-y-2">
-          <div className="flex items-center gap-2 font-mono text-[10px] uppercase text-[var(--bh-red)] font-bold">
+          <div className="flex items-center gap-2 font-mono text-[10px] uppercase text-bh-red font-bold">
             <MessageSquare className="w-3.5 h-3.5" /> Line 3 / Closeness
           </div>
           <p className="font-human italic text-neutral-600 leading-relaxed text-sm">
@@ -37,7 +37,7 @@ export const EditorSidebar = memo(function EditorSidebar({ isZenMode }: EditorSi
         </div>
 
         <div className="bg-white/50 border border-neutral-200/50 p-4 rounded-xl space-y-2">
-          <div className="flex items-center gap-2 font-mono text-[10px] uppercase text-[var(--bh-blue)] font-bold">
+          <div className="flex items-center gap-2 font-mono text-[10px] uppercase text-bh-blue font-bold">
             <MessageSquare className="w-3.5 h-3.5" /> Heine–Borel Ext.
           </div>
           <p className="font-human italic text-neutral-600 leading-relaxed text-sm">

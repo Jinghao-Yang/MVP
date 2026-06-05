@@ -54,17 +54,40 @@ function SidebarComponent({
     }, 250);
   };
 
+  const handleToggle = () => {
+    if (isZenMode) return;
+    if (isSidebarPinned) {
+      toggleSidebarPin();
+    } else {
+      setSidebarHovered(!isSidebarHovered);
+    }
+  };
+
   useEffect(() => {
     return () => clearCloseTimer();
   }, []);
 
   return (
     <>
+      {/* 触摸设备触发按钮 */}
+      {isTouch && !isZenMode && (
+        <button
+          onClick={handleToggle}
+          className="fixed top-1/2 -translate-y-1/2 left-0 z-[calc(var(--z-sidebar)-1)] p-2 bg-white/90 shadow-lg rounded-r-lg border border-l-0 border-neutral-200/80 hover:bg-white transition-colors"
+          aria-label={isExpanded ? '收起侧边栏' : '展开侧边栏'}
+        >
+          <ChevronRight
+            className={`w-5 h-5 text-neutral-600 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
+          />
+        </button>
+      )}
+
       {/* 物理边缘感应触发区 */}
       {!isTouch && !isSidebarPinned && !isZenMode && (
         <div
           onMouseEnter={handleExpand}
-          className="fixed top-0 left-0 bottom-0 w-6 z-[109] group transition-all duration-200"
+          className="fixed top-0 left-0 bottom-0 w-6 group transition-all duration-200"
+          style={{ zIndex: 'calc(var(--z-sidebar) - 1)' }}
         >
           {/* 边缘微弱渐变感应条 */}
           <div className="absolute top-0 left-0 w-0.5 h-full bg-gradient-to-r from-white/40 to-transparent group-hover:w-6 group-hover:from-white/50 transition-all duration-300 ease-out" />
@@ -72,8 +95,8 @@ function SidebarComponent({
       )}
 
       <aside
-        onMouseEnter={handleExpand}
-        onMouseLeave={handleCollapse}
+        onMouseEnter={isTouch ? undefined : handleExpand}
+        onMouseLeave={isTouch ? undefined : handleCollapse}
         className="sidebar glass-panel"
         id="sidebar"
         style={{
@@ -84,7 +107,7 @@ function SidebarComponent({
           transition:
             'width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease',
           position: 'fixed',
-          zIndex: 110,
+          zIndex: 'var(--z-sidebar)',
           boxShadow: isExpanded ? '24px 0px 80px -12px rgba(28, 28, 26, 0.08)' : 'none',
         }}
       >

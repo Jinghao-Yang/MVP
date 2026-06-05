@@ -4,144 +4,94 @@
  */
 
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { getDocument, updateDocumentContent, getBacklinks } from '@/db/documents';
+import { documentService } from '@/services/document-service';
 
 export interface EditorState {
-  // 当前 Wiki ID
   currentWikiId: string | null;
-  // 右侧面板 Wiki 标题
-  rightPaneWikiTitle: string;
-  // 右侧面板 Wiki 内容
-  rightPaneWikiContent: string;
-  // 右侧面板反向链接
-  rightPaneBacklinks: string[];
-  // 文档文本
   documentText: string;
-  // 文档历史记录
   documentHistory: string[];
-  // 历史记录索引
   historyIndex: number;
 
-  // 设置当前 Wiki ID
   setCurrentWikiId: (id: string | null) => void;
-  // 设置文档文本（带防抖保存）
   setDocumentText: (text: string) => void;
-  // 设置右侧面板内容（带防抖保存）
-  setRightPaneWikiContent: (text: string) => void;
-  // 加载 Wiki 内容
-  loadWikiContent: (wikiId: string) => Promise<void>;
-  // 后退
-  goBack: () => Promise<void>;
-  // 前进
-  goForward: () => Promise<void>;
-  // 是否可以后退
+  loadDocumentText: (documentId: string) => Promise<void>;
+  loadWikiContent: (wikiId: string) => void;
+  goBack: () => void;
+  goForward: () => void;
   canGoBack: () => boolean;
-  // 是否可以前进
   canGoForward: () => boolean;
 }
 
-// 防抖定时器
-let documentDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-let rightPaneDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+const MAX_HISTORY_LENGTH = 50;
 
-export const useEditorStore = create<EditorState>()(
-  persist(
-    (set, get) => ({
-      currentWikiId: null,
-      rightPaneWikiTitle: '',
-      rightPaneWikiContent: '',
-      rightPaneBacklinks: [],
-      documentText: '',
-      documentHistory: [],
-      historyIndex: -1,
+export const useEditorStore = create<EditorState>()((set, get) => ({
+  currentWikiId: null,
+  documentText: '',
+  documentHistory: [],
+  historyIndex: -1,
 
-      setCurrentWikiId: (id) => set({ currentWikiId: id }),
+  setCurrentWikiId: (id: string | null) => set({ currentWikiId: id }),
 
-      setDocumentText: (text) => {
-        set({ documentText: text });
-        if (documentDebounceTimer) clearTimeout(documentDebounceTimer);
-        documentDebounceTimer = setTimeout(async () => {
-          await updateDocumentContent('main-editor-doc', text);
-        }, 450);
-      },
+  setDocumentText: (text: string) => set({ documentText: text }),
 
-      setRightPaneWikiContent: (text) => {
-        set({ rightPaneWikiContent: text });
-        if (rightPaneDebounceTimer) clearTimeout(rightPaneDebounceTimer);
-        rightPaneDebounceTimer = setTimeout(async () => {
-          const wikiId = get().currentWikiId;
-          if (wikiId) {
-            await updateDocumentContent(wikiId, text);
-          }
-        }, 450);
-      },
-
-      loadWikiContent: async (wikiId) => {
-        const state = get();
-        const data = await getDocument(wikiId);
-        if (data) {
-          const backlinks = await getBacklinks(wikiId);
-          const newHistory = state.documentHistory.slice(0, state.historyIndex + 1);
-          newHistory.push(wikiId);
-          set({
-            rightPaneWikiTitle: data.title,
-            rightPaneWikiContent: data.content,
-            rightPaneBacklinks: backlinks,
-            documentHistory: newHistory,
-            historyIndex: newHistory.length - 1,
-            currentWikiId: wikiId,
-          });
-        }
-      },
-
-      goBack: async () => {
-        const state = get();
-        if (state.historyIndex > 0) {
-          const newIndex = state.historyIndex - 1;
-          const wikiId = state.documentHistory[newIndex];
-          const data = await getDocument(wikiId);
-          if (data) {
-            const backlinks = await getBacklinks(wikiId);
-            set({
-              rightPaneWikiTitle: data.title,
-              rightPaneWikiContent: data.content,
-              rightPaneBacklinks: backlinks,
-              historyIndex: newIndex,
-              currentWikiId: wikiId,
-            });
-          }
-        }
-      },
-
-      goForward: async () => {
-        const state = get();
-        if (state.historyIndex < state.documentHistory.length - 1) {
-          const newIndex = state.historyIndex + 1;
-          const wikiId = state.documentHistory[newIndex];
-          const data = await getDocument(wikiId);
-          if (data) {
-            const backlinks = await getBacklinks(wikiId);
-            set({
-              rightPaneWikiTitle: data.title,
-              rightPaneWikiContent: data.content,
-              rightPaneBacklinks: backlinks,
-              historyIndex: newIndex,
-              currentWikiId: wikiId,
-            });
-          }
-        }
-      },
-
-      canGoBack: () => get().historyIndex > 0,
-      canGoForward: () => get().historyIndex < get().documentHistory.length - 1,
-    }),
-    {
-      name: 'axiom-editor-storage',
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state: EditorState) => ({
-        currentWikiId: state.currentWikiId,
-      }),
+  loadDocumentText: async (documentId: string) => {
+    try {
+      const data = await documentService.getDocument(documentId);
+      if (data) {
+        set({
+          documentText: data.content,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load document:', error);
     }
-  )
-);
+  },
+
+  loadWikiContent: (wikiId: string) => {
+    const state = get();
+    const newHistory = state.documentHistory.slice(0, state.historyIndex + 1);
+    if (newHistory[newHistory.length - 1] !== wikiId) {
+      newHistory.push(wikiId);
+    }
+    const trimmedHistory =
+      newHistory.length > MAX_HISTORY_LENGTH ? newHistory.slice(-MAX_HISTORY_LENGTH) : newHistory;
+    set({
+      currentWikiId: wikiId,
+      documentHistory: trimmedHistory,
+      historyIndex: trimmedHistory.length - 1,
+    });
+  },
+
+  goBack: () => {
+    const state = get();
+    if (state.historyIndex > 0) {
+      const newIndex = state.historyIndex - 1;
+      const wikiId = state.documentHistory[newIndex];
+      set({
+        currentWikiId: wikiId,
+        historyIndex: newIndex,
+      });
+    }
+  },
+
+  goForward: () => {
+    const state = get();
+    if (state.historyIndex < state.documentHistory.length - 1) {
+      const newIndex = state.historyIndex + 1;
+      const wikiId = state.documentHistory[newIndex];
+      set({
+        currentWikiId: wikiId,
+        historyIndex: newIndex,
+      });
+    }
+  },
+
+  canGoBack: () => {
+    return get().historyIndex > 0;
+  },
+
+  canGoForward: () => {
+    const state = get();
+    return state.historyIndex < state.documentHistory.length - 1;
+  },
+}));

@@ -14,13 +14,13 @@ export function GalleryView({ openPage }: GalleryViewProps) {
           className="brutal-card card-theorem p-6 flex flex-col justify-between group rounded-none"
         >
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-black/5">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--bh-blue)] font-bold">
+            <span className="font-mono text-[11px] uppercase tracking-wider text-bh-blue font-bold">
               Zettelkasten
             </span>
             <span className="tag-badge tag-badge-blue">Active</span>
           </div>
           <div className="py-2">
-            <h3 className="font-sys text-xl font-bold leading-snug group-hover:text-[var(--bh-blue)] transition-colors mb-2">
+            <h3 className="font-sys text-xl font-bold leading-snug group-hover:text-bh-blue transition-colors mb-2">
               Compactness in Spaces
             </h3>
             <p className="font-sys text-xs text-neutral-500 leading-relaxed line-clamp-3">
@@ -30,9 +30,9 @@ export function GalleryView({ openPage }: GalleryViewProps) {
         </div>
 
         <div className="brutal-card col-span-1 md:col-span-2 p-6 flex flex-col justify-between relative overflow-hidden rounded-none">
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[var(--bh-yellow)] opacity-10 rounded-full blur-2xl"></div>
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-bh-yellow opacity-10 rounded-full blur-2xl"></div>
           <div className="flex items-center justify-between pb-3">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--bh-yellow)] font-bold">
+            <span className="font-mono text-[11px] uppercase tracking-wider text-bh-yellow font-bold">
               Thought
             </span>
           </div>

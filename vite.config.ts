@@ -3,7 +3,9 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig } from 'vite';
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  const isProduction = mode === 'production';
+  
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
@@ -23,7 +25,7 @@ export default defineConfig(() => {
     build: {
       minify: 'esbuild',
       esbuild: {
-        drop: ['console', 'debugger'],
+        drop: isProduction ? ['console', 'debugger'] : [],
       },
       sourcemap: false,
       chunkSizeWarningLimit: 1000,
@@ -33,13 +35,13 @@ export default defineConfig(() => {
             'react-vendor': ['react', 'react-dom'],
             'codemirror': ['@uiw/react-codemirror', '@codemirror/lang-markdown', '@codemirror/view'],
             'dnd-kit': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
-            'other-vendor': ['lucide-react', 'motion', 'dexie', 'zustand'],
+            'other-vendor': ['lucide-react', 'motion/react', 'dexie', 'zustand'],
           },
         },
       },
     },
     optimizeDeps: {
-      include: ['react', 'react-dom', 'lucide-react', 'motion', 'zustand'],
+      include: ['react', 'react-dom', 'lucide-react', 'motion/react', 'zustand'],
       force: false,
     },
     server: {

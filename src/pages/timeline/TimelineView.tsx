@@ -23,7 +23,7 @@ export function TimelineView() {
             </div>
             <div className="col-span-3 col-start-3 brutal-card p-3 flex justify-between border border-white">
               <span className="text-[11px] font-mono uppercase text-gray-500">Axiomatic Setup</span>
-              <span className="text-[11px] text-[var(--bh-red)] font-bold">◆ Public Beta</span>
+              <span className="text-[11px] text-bh-red font-bold">◆ Public Beta</span>
             </div>
           </div>
           <div className="grid grid-cols-6 items-center gap-4 gantt-item">
@@ -32,7 +32,7 @@ export function TimelineView() {
             </div>
             <div className="col-span-2 col-start-4 brutal-card p-3 flex justify-between border border-white">
               <span className="text-[11px] font-mono uppercase text-gray-500">Euclidean Map</span>
-              <span className="text-[11px] text-[var(--bh-green)] font-bold">◇ Unify</span>
+              <span className="text-[11px] text-bh-green font-bold">◇ Unify</span>
             </div>
           </div>
         </div>

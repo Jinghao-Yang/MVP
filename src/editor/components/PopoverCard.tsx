@@ -1,13 +1,11 @@
-/* ================================================
-   FILE: src/editor/components/PopoverCard.tsx
-   ================================================ */
-import React, { useState, memo, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pin, Minimize2 } from 'lucide-react';
 import { motion, useDragControls } from 'motion/react';
 import type { PopoverCardProps } from '@/types';
 import { usePopupStore } from '@/stores/popup-store';
+import { useDraggablePopup } from '@/hooks/useDraggablePopup';
 
-export const PopoverCard: React.FC<PopoverCardProps> = memo(
+export const PopoverCard: React.FC<PopoverCardProps> = React.memo(
   ({
     popup,
     onClose,
@@ -19,6 +17,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
     onMouseLeave,
     onLinkHover,
     onLinkLeave,
+    onLinkClick,
     onDragStart,
     onDragEnd,
   }) => {
@@ -26,8 +25,16 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
     const activePopupId = usePopupStore((state) => state.activePopupId);
     const dragControls = useDragControls();
 
-    const [size, setSize] = useState({ w: popup.width, h: popup.height });
-    const [isSmallScreen, setIsSmallScreen] = useState(false);
+    const { size, handleResizeStart } = useDraggablePopup(popup.width, popup.height);
+    const [isSmallScreen, setIsSmallScreen] = React.useState(false);
+    const isTouchDevice =
+      typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+    const [dragConstraints, setDragConstraints] = useState({
+      left: 0,
+      top: 0,
+      right: window.innerWidth - popup.width,
+      bottom: window.innerHeight - popup.height,
+    });
 
     const isActive = activePopupId === popup.id;
 
@@ -35,37 +42,31 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
       const checkScreenSize = () => {
         setIsSmallScreen(window.innerWidth <= 768);
       };
-
       checkScreenSize();
       window.addEventListener('resize', checkScreenSize);
       return () => window.removeEventListener('resize', checkScreenSize);
     }, []);
 
-    const handleResizeStart = (e: React.PointerEvent) => {
-      e.preventDefault();
+    useEffect(() => {
+      const updateDragConstraints = () => {
+        const currentWidth = isSmallScreen ? window.innerWidth * 0.9 : size.w;
+        const currentHeight = isSmallScreen ? window.innerHeight * 0.8 : size.h;
+        setDragConstraints({
+          left: 0,
+          top: 0,
+          right: window.innerWidth - currentWidth,
+          bottom: window.innerHeight - currentHeight,
+        });
+      };
+
+      updateDragConstraints();
+      window.addEventListener('resize', updateDragConstraints);
+      return () => window.removeEventListener('resize', updateDragConstraints);
+    }, [size, isSmallScreen]);
+
+    const handleResize = (e: React.PointerEvent) => {
       bringToFront(popup.id);
-      onDragStart();
-
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const startW = size.w;
-      const startH = size.h;
-
-      const onMove = (moveEvent: PointerEvent) => {
-        const nextW = Math.max(320, startW + (moveEvent.clientX - startX));
-        const nextH = Math.max(200, startH + (moveEvent.clientY - startY));
-        setSize({ w: nextW, h: nextH });
-      };
-
-      const onUp = () => {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        onSizeChange(size.w, size.h);
-        onDragEnd();
-      };
-
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
+      handleResizeStart(e, onDragStart, onDragEnd, onSizeChange);
     };
 
     return (
@@ -73,9 +74,9 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
         drag={!isSmallScreen}
         dragControls={dragControls}
         dragListener={false}
-        // 极致的物理追手，彻底剥离拖拽后的残留动量及不真实偏移
         dragMomentum={false}
-        dragElastic={0}
+        dragElastic={0.1}
+        dragConstraints={dragConstraints}
         initial={{ opacity: 0, y: popup.y + 16, scale: 0.96, filter: 'blur(6px)' }}
         animate={{ opacity: 1, y: popup.y, scale: 1, filter: 'blur(0px)' }}
         transition={{ type: 'spring', stiffness: 500, damping: 40, mass: 0.8 }}
@@ -105,7 +106,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
           width: isSmallScreen ? '90vw' : size.w,
           height: isSmallScreen ? 'auto' : size.h,
           maxHeight: isSmallScreen ? '80vh' : 'none',
-          zIndex: isActive ? 200 : 100 + popup.depth,
+          zIndex: isActive ? 'var(--z-popover)' : `calc(var(--z-popover) + ${popup.depth})`,
         }}
         className={`glass-panel border border-neutral-300/80 shadow-[0_12px_40px_rgba(0,0,0,0.06)] flex flex-col overflow-hidden transition-colors ${
           isActive ? 'bg-white/95 border-neutral-400' : 'bg-white/70'
@@ -125,7 +126,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
                   e.stopPropagation();
                   onPinToggle();
                 }}
-                className={`p-1 hover:bg-black/10 transition-colors border-none cursor-pointer bg-transparent ${popup.isPinned ? 'text-[var(--bh-red)]' : 'text-neutral-400'}`}
+                className={`p-1 hover:bg-black/10 transition-colors border-none cursor-pointer bg-transparent ${popup.isPinned ? 'text-bh-red' : 'text-neutral-400'}`}
               >
                 <Pin className="w-3.5 h-3.5" />
               </button>
@@ -160,13 +161,25 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
                 <>
                   In metric spaces, a subset is closed and bounded iff it is{' '}
                   <span
-                    className="cm-wysiwyg-link font-medium text-[var(--bh-red)] relative px-0.5 cursor-pointer"
-                    onMouseEnter={(e: React.MouseEvent) => {
-                      if (usePopupStore.getState().isUserDragging) return;
-                      if (window.getSelection()?.toString().trim().length) return;
-                      onLinkHover(e, 'compactness', popup.depth);
-                    }}
-                    onMouseLeave={() => onLinkLeave('compactness')}
+                    className="cm-wysiwyg-link font-medium text-bh-red relative px-0.5 cursor-pointer"
+                    onMouseEnter={
+                      isTouchDevice
+                        ? undefined
+                        : (e: React.MouseEvent) => {
+                            if (usePopupStore.getState().isUserDragging) return;
+                            if (window.getSelection()?.toString().trim().length) return;
+                            onLinkHover(e, 'compactness', popup.depth);
+                          }
+                    }
+                    onMouseLeave={isTouchDevice ? undefined : () => onLinkLeave('compactness')}
+                    onClick={
+                      isTouchDevice
+                        ? () => {
+                            if (usePopupStore.getState().isUserDragging) return;
+                            onLinkClick('compactness', popup.depth);
+                          }
+                        : undefined
+                    }
                   >
                     compact
                   </span>
@@ -181,7 +194,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = memo(
 
         {!isSmallScreen && (
           <div
-            onPointerDown={handleResizeStart}
+            onPointerDown={handleResize}
             className="absolute bottom-1 right-1 cursor-se-resize p-1"
           >
             <svg

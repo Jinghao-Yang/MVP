@@ -1,9 +1,10 @@
 /**
  * useDocument Hook
- * 封装文档数据访问，提供文档加载、更新、历史导航等功能
+ * 封装文档数据访问，提供文档加载、更新等功能
  */
 import { useCallback } from 'react';
 import { useEditorStore } from '@/stores/editor-store';
+import { useUiStore } from '@/stores/ui-store';
 import { documentService } from '@/services/document-service';
 import type { DocumentEntity } from '@/types';
 
@@ -13,31 +14,15 @@ import type { DocumentEntity } from '@/types';
 export interface UseDocumentReturn {
   /** 当前 Wiki ID */
   currentWikiId: string | null;
-  /** 右侧面板 Wiki 标题 */
-  rightPaneWikiTitle: string;
-  /** 右侧面板 Wiki 内容 */
-  rightPaneWikiContent: string;
-  /** 右侧面板反向链接 */
-  rightPaneBacklinks: string[];
   /** 文档文本 */
   documentText: string;
-  /** 是否可以后退 */
-  canGoBack: boolean;
-  /** 是否可以前进 */
-  canGoForward: boolean;
 
   /** 设置当前 Wiki ID */
   setCurrentWikiId: (id: string | null) => void;
-  /** 设置文档文本（带防抖保存） */
+  /** 设置文档文本 */
   setDocumentText: (text: string) => void;
-  /** 设置右侧面板内容（带防抖保存） */
-  setRightPaneWikiContent: (text: string) => void;
-  /** 加载 Wiki 内容 */
-  loadWikiContent: (wikiId: string) => Promise<void>;
-  /** 后退 */
-  goBack: () => Promise<void>;
-  /** 前进 */
-  goForward: () => Promise<void>;
+  /** 加载文档内容 */
+  loadDocumentText: (documentId: string) => Promise<void>;
 
   /** 获取文档 */
   getDocument: (id: string) => Promise<DocumentEntity | undefined>;
@@ -56,29 +41,24 @@ export interface UseDocumentReturn {
   deleteDocument: (id: string) => Promise<void>;
   /** 获取正向链接 */
   getForwardLinks: (id: string) => Promise<string[]>;
+  /** 获取反向链接 */
+  getBacklinks: (id: string) => Promise<string[]>;
 }
 
 /**
  * 文档数据访问 Hook
- * 封装文档的加载、更新、历史导航等操作
+ * 封装文档的加载、更新等操作
  * 整合了 Editor Store 和 Document Service 的功能
  */
 export function useDocument(): UseDocumentReturn {
   // 从 Editor Store 获取状态和方法
-  const currentWikiId = useEditorStore((state) => state.currentWikiId);
-  const rightPaneWikiTitle = useEditorStore((state) => state.rightPaneWikiTitle);
-  const rightPaneWikiContent = useEditorStore((state) => state.rightPaneWikiContent);
-  const rightPaneBacklinks = useEditorStore((state) => state.rightPaneBacklinks);
   const documentText = useEditorStore((state) => state.documentText);
-
-  const setCurrentWikiId = useEditorStore((state) => state.setCurrentWikiId);
   const setDocumentText = useEditorStore((state) => state.setDocumentText);
-  const setRightPaneWikiContent = useEditorStore((state) => state.setRightPaneWikiContent);
-  const loadWikiContent = useEditorStore((state) => state.loadWikiContent);
-  const goBack = useEditorStore((state) => state.goBack);
-  const goForward = useEditorStore((state) => state.goForward);
-  const canGoBack = useEditorStore((state) => state.canGoBack);
-  const canGoForward = useEditorStore((state) => state.canGoForward);
+  const loadDocumentText = useEditorStore((state) => state.loadDocumentText);
+
+  // 从 UI Store 获取跨组件共享状态
+  const currentWikiId = useUiStore((state) => state.currentWikiId);
+  const setCurrentWikiId = useUiStore((state) => state.setCurrentWikiId);
 
   // 封装 Document Service 方法
   const getDocument = useCallback(async (id: string) => {
@@ -115,23 +95,19 @@ export function useDocument(): UseDocumentReturn {
     return await documentService.getForwardLinks(id);
   }, []);
 
+  const getBacklinks = useCallback(async (id: string) => {
+    return await documentService.getBacklinks(id);
+  }, []);
+
   return {
     // 状态
     currentWikiId,
-    rightPaneWikiTitle,
-    rightPaneWikiContent,
-    rightPaneBacklinks,
     documentText,
-    canGoBack: canGoBack(),
-    canGoForward: canGoForward(),
 
-    // Editor Store 方法
+    // Store 方法
     setCurrentWikiId,
     setDocumentText,
-    setRightPaneWikiContent,
-    loadWikiContent,
-    goBack,
-    goForward,
+    loadDocumentText,
 
     // Document Service 方法
     getDocument,
@@ -141,5 +117,6 @@ export function useDocument(): UseDocumentReturn {
     updateDocumentMetadata,
     deleteDocument,
     getForwardLinks,
+    getBacklinks,
   };
 }

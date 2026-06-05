@@ -31,7 +31,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#FAFAF8] text-[#1C1C1A] p-8 font-sys select-none">
           <div className="glass-panel p-12 max-w-lg text-center space-y-6">
-            <span className="font-mono text-[11px] uppercase tracking-widest text-[var(--bh-red)] font-bold">
+            <span className="font-mono text-[11px] uppercase tracking-widest text-bh-red font-bold">
               System Halt // Error Boundary
             </span>
             <h1 className="font-human text-3xl font-bold tracking-tight">

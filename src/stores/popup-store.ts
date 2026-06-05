@@ -6,8 +6,71 @@
 import { create } from 'zustand';
 import type React from 'react';
 import type { PopupData } from '@/types';
+import { getDocument } from '@/services/document-service';
 import { db } from '@/db/dexie';
-import { getDocument } from '@/db/documents';
+import { timerManager } from '@/utils/timer-manager';
+
+// ============================================================================
+// 弹窗配置常量
+// ============================================================================
+
+const DEFAULT_POPUP_CONFIG = {
+  width: 500,
+  height: 320,
+  offsetX: 20,
+  offsetY: 20,
+  minWidth: 300,
+  minHeight: 200,
+  maxWidth: 800,
+  maxHeight: 600,
+} as const;
+
+// ============================================================================
+// 辅助函数
+// ============================================================================
+
+/**
+ * 确保位置在屏幕边界内
+ */
+function ensureWithinBounds(x: number, y: number): { x: number; y: number } {
+  if (typeof window !== 'undefined') {
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    const maxX = viewportWidth - DEFAULT_POPUP_CONFIG.minWidth;
+    const boundedX = Math.max(0, Math.min(x, maxX));
+
+    const maxY = viewportHeight - DEFAULT_POPUP_CONFIG.minHeight;
+    const boundedY = Math.max(0, Math.min(y, maxY));
+
+    return { x: boundedX, y: boundedY };
+  }
+  return { x, y };
+}
+
+/**
+ * 限制尺寸在最小和最大范围内
+ */
+function constrainSize(width: number, height: number): { width: number; height: number } {
+  return {
+    width: Math.max(DEFAULT_POPUP_CONFIG.minWidth, Math.min(width, DEFAULT_POPUP_CONFIG.maxWidth)),
+    height: Math.max(
+      DEFAULT_POPUP_CONFIG.minHeight,
+      Math.min(height, DEFAULT_POPUP_CONFIG.maxHeight)
+    ),
+  };
+}
+
+/**
+ * 计算默认弹窗位置
+ */
+function _calculateDefaultPosition(depth: number): { x: number; y: number } {
+  const offset = depth * 30;
+  return {
+    x: DEFAULT_POPUP_CONFIG.offsetX + offset,
+    y: DEFAULT_POPUP_CONFIG.offsetY + offset,
+  };
+}
 
 // ============================================================================
 // 类型定义
@@ -63,88 +126,12 @@ export interface PopupState {
   handlePopoverMouseEnter: (wikiId: string) => void;
   /** 弹窗鼠标离开处理 */
   handlePopoverMouseLeave: (wikiId: string) => void;
+  /** 点击触发弹窗（触摸设备使用） */
+  handleClick: (wikiId: string, depth?: number) => void;
   /** 弹窗位置变化处理 */
   handlePositionChange: (id: string, x: number, y: number) => Promise<void>;
   /** 弹窗尺寸变化处理 */
   handleSizeChange: (id: string, width: number, height: number) => Promise<void>;
-}
-
-// ============================================================================
-// 定时器管理 Hook
-// ============================================================================
-
-/**
- * 悬停定时器管理器
- * 用于管理弹窗打开/关闭的延迟定时器，消除模块级变量
- */
-class TimerManager {
-  private timers = new Map<string, ReturnType<typeof setTimeout>>();
-
-  /**
-   * 设置定时器
-   * @param key - 定时器键名
-   * @param callback - 回调函数
-   * @param delay - 延迟时间（毫秒）
-   */
-  setTimer(key: string, callback: () => void, delay: number): void {
-    this.clearTimer(key);
-    const timerId = setTimeout(() => {
-      this.timers.delete(key);
-      callback();
-    }, delay);
-    this.timers.set(key, timerId);
-  }
-
-  /**
-   * 清除指定定时器
-   * @param key - 定时器键名
-   */
-  clearTimer(key: string): void {
-    const timer = this.timers.get(key);
-    if (timer) {
-      clearTimeout(timer);
-      this.timers.delete(key);
-    }
-  }
-
-  /**
-   * 检查定时器是否存在
-   * @param key - 定时器键名
-   */
-  hasTimer(key: string): boolean {
-    return this.timers.has(key);
-  }
-
-  /**
-   * 清除所有打开定时器（非关闭定时器）
-   */
-  clearAllOpenTimers(): void {
-    this.timers.forEach((timer, key) => {
-      if (!key.startsWith('close-')) {
-        clearTimeout(timer);
-        this.timers.delete(key);
-      }
-    });
-  }
-
-  /**
-   * 清除所有定时器
-   */
-  clearAll(): void {
-    this.timers.forEach((timer) => clearTimeout(timer));
-    this.timers.clear();
-  }
-}
-
-// 全局定时器管理器实例
-const timerManager = new TimerManager();
-
-/**
- * 获取定时器管理器的 Hook
- * @returns 定时器管理器实例
- */
-export function useTimerManager(): TimerManager {
-  return timerManager;
 }
 
 // ============================================================================
@@ -211,7 +198,9 @@ export const usePopupStore = create<PopupState>()((set, get) => ({
     const state = get();
     if (state.isUserDragging) return;
 
-    // 清除已存在的打开和关闭定时器
+    const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+    if (isTouch) return;
+
     timerManager.clearTimer(wikiId);
     timerManager.clearTimer(`close-${wikiId}`);
 
@@ -237,8 +226,8 @@ export const usePopupStore = create<PopupState>()((set, get) => ({
         if (docData) {
           let adjustedX = savedState?.x ?? clientX + window.scrollX;
           let adjustedY = savedState?.y ?? clientY + window.scrollY + 20;
-          const defaultWidth = savedState?.width ?? 500;
-          const defaultHeight = savedState?.height ?? 320;
+          const defaultWidth = savedState?.width ?? DEFAULT_POPUP_CONFIG.width;
+          const defaultHeight = savedState?.height ?? DEFAULT_POPUP_CONFIG.height;
 
           if (!savedState) {
             adjustedX = adjustedX + depth * 25;
@@ -262,7 +251,7 @@ export const usePopupStore = create<PopupState>()((set, get) => ({
             y: adjustedY,
             width: defaultWidth,
             height: defaultHeight,
-            depth: depth + 1,
+            depth: Math.min(depth + 1, 5),
             isPinned: false,
             isMinimized: false,
             history: [wikiId],
@@ -294,16 +283,13 @@ export const usePopupStore = create<PopupState>()((set, get) => ({
     const state = get();
     if (state.isUserDragging) return;
 
-    // 清除已存在的打开定时器
     timerManager.clearTimer(wikiId);
 
-    // 特殊处理：关闭所有弹窗
     if (wikiId === 'any') {
       timerManager.clearAllOpenTimers();
       return;
     }
 
-    // 设置关闭定时器
     timerManager.setTimer(
       `close-${wikiId}`,
       () => {
@@ -320,7 +306,6 @@ export const usePopupStore = create<PopupState>()((set, get) => ({
   handlePopoverMouseEnter: (wikiId: string) => {
     const state = get();
     if (state.isUserDragging) return;
-    // 清除关闭定时器，保持弹窗打开
     timerManager.clearTimer(`close-${wikiId}`);
   },
 
@@ -328,21 +313,119 @@ export const usePopupStore = create<PopupState>()((set, get) => ({
     get().handleMouseLeave(wikiId);
   },
 
+  handleClick: async (wikiId: string, depth = 0) => {
+    const state = get();
+    if (state.isUserDragging) return;
+
+    timerManager.clearTimer(wikiId);
+    timerManager.clearTimer(`close-${wikiId}`);
+
+    set({ loadingWikiId: wikiId });
+
+    const currentPopups = get().popups;
+    const existingPopup = currentPopups.find((p) => p.id === wikiId);
+
+    if (existingPopup) {
+      set({ loadingWikiId: null, activePopupId: wikiId });
+      return;
+    }
+
+    const docData = await getDocument(wikiId);
+    const savedState = await db.popoverStates.get(wikiId);
+
+    if (docData) {
+      const defaultWidth = savedState?.width ?? DEFAULT_POPUP_CONFIG.width;
+      const defaultHeight = savedState?.height ?? DEFAULT_POPUP_CONFIG.height;
+
+      let adjustedX = savedState?.x ?? DEFAULT_POPUP_CONFIG.offsetX + depth * 30;
+      let adjustedY = savedState?.y ?? DEFAULT_POPUP_CONFIG.offsetY + depth * 30;
+
+      if (!savedState) {
+        adjustedX = adjustedX + depth * 25;
+        adjustedY = adjustedY + depth * 25;
+
+        if (adjustedX + defaultWidth > window.innerWidth) {
+          adjustedX = window.innerWidth - defaultWidth - 24;
+        }
+        if (adjustedY + defaultHeight > window.innerHeight) {
+          adjustedY = window.innerHeight - defaultHeight - 24;
+        }
+      }
+
+      const newPopup: PopupData = {
+        id: wikiId,
+        title: docData.title,
+        excerpt: docData.content.substring(0, 180) + '...',
+        badge: docData.badge,
+        badgeClass: docData.badgeClass,
+        x: adjustedX,
+        y: adjustedY,
+        width: defaultWidth,
+        height: defaultHeight,
+        depth: Math.min(depth + 1, 5),
+        isPinned: false,
+        isMinimized: false,
+        history: [wikiId],
+        historyIndex: 0,
+      };
+
+      set({
+        popups: [...currentPopups.filter((p) => p.isPinned || p.depth <= depth), newPopup],
+        activePopupId: wikiId,
+        loadingWikiId: null,
+      });
+
+      if (!savedState) {
+        await db.popoverStates.put({
+          id: wikiId,
+          x: adjustedX,
+          y: adjustedY,
+          width: defaultWidth,
+          height: defaultHeight,
+        });
+      }
+    } else {
+      set({ loadingWikiId: null });
+    }
+  },
+
   handlePositionChange: async (id, x, y) => {
+    const boundedPosition = ensureWithinBounds(x, y);
     set((state) => ({
-      popups: state.popups.map((p) => (p.id === id ? { ...p, x, y, isPinned: true } : p)),
+      popups: state.popups.map((p) =>
+        p.id === id ? { ...p, x: boundedPosition.x, y: boundedPosition.y, isPinned: true } : p
+      ),
     }));
-    await db.popoverStates.update(id, { x, y }).catch(async () => {
-      await db.popoverStates.put({ id, x, y, width: 500, height: 320 });
-    });
+    const popup = get().popups.find((p) => p.id === id);
+    if (popup) {
+      await db.popoverStates.put({
+        id,
+        x: boundedPosition.x,
+        y: boundedPosition.y,
+        width: popup.width,
+        height: popup.height,
+      });
+    }
   },
 
   handleSizeChange: async (id, width, height) => {
+    const constrainedSize = constrainSize(width, height);
     set((state) => ({
-      popups: state.popups.map((p) => (p.id === id ? { ...p, width, height, isPinned: true } : p)),
+      popups: state.popups.map((p) =>
+        p.id === id
+          ? { ...p, width: constrainedSize.width, height: constrainedSize.height, isPinned: true }
+          : p
+      ),
     }));
-    await db.popoverStates.update(id, { width, height }).catch(async () => {
-      await db.popoverStates.put({ id, x: 100, y: 100, width, height });
-    });
+    const popup = get().popups.find((p) => p.id === id);
+    if (popup) {
+      await db.popoverStates.put({
+        id,
+        x: popup.x,
+        y: popup.y,
+        width: constrainedSize.width,
+        height: constrainedSize.height,
+      });
+    }
   },
 }));

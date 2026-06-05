@@ -19,7 +19,7 @@ import { useCallback, useRef } from 'react';
  * <input onChange={(e) => debouncedSearch(e.target.value)} />
  * ```
  */
-export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
+export function useDebouncedCallback<T extends (...args: Parameters<T>) => unknown>(
   callback: T,
   delay: number
 ): T {

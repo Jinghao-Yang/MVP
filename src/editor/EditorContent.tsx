@@ -1,14 +1,19 @@
 /* ================================================
    FILE: src/editor/EditorContent.tsx
    ================================================ */
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 import { Eye, EyeOff, ChevronLeft, ChevronRight } from 'lucide-react';
-import CodeMirror from '@uiw/react-codemirror';
-import { markdown } from '@codemirror/lang-markdown';
-import { EditorView } from '@codemirror/view';
 import { usePopupStore, type PopupState } from '@/stores/popup-store';
 import { useEditorStore, type EditorState } from '@/stores/editor-store';
-import { wysiwygLinkFolderPlugin } from './extensions/wysiwyg-link';
+import { useUiStore } from '@/stores/ui-store';
+import {
+  wysiwygLinkExtensions,
+  wysiwygLinkExtension,
+  type LinkEvent,
+} from './extensions/wysiwyg-link';
+import { MarkdownEditor } from './components/MarkdownEditor';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { updateDocumentContent } from '@/db/documents';
 
 interface EditorContentProps {
   isZenMode: boolean;
@@ -27,94 +32,64 @@ export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorCont
   const canGoBack = useEditorStore((state: EditorState) => state.canGoBack);
   const canGoForward = useEditorStore((state: EditorState) => state.canGoForward);
   const currentWikiId = useEditorStore((state: EditorState) => state.currentWikiId);
+  const setStatus = useUiStore((state) => state.setStatus);
+
+  const debouncedSave = useDebouncedCallback(async (text: string) => {
+    try {
+      await updateDocumentContent('main-editor-doc', text);
+      setStatus('Auto-saved');
+    } catch (error) {
+      console.error('Failed to save document:', error);
+      setStatus('Failed to auto-save. Please check storage.');
+    }
+  }, 500);
+
+  // ================================================
+  // beforeunload 最后防线
+  // ================================================
+
+  useEffect(() => {
+    const handleBeforeUnload = async (_event: BeforeUnloadEvent) => {
+      try {
+        await updateDocumentContent('main-editor-doc', documentText);
+      } catch (error) {
+        console.error('Failed to save on beforeunload:', error);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [documentText]);
 
   const handleCodeMirrorChange = useCallback(
     (value: string) => {
       setDocumentText(value);
+      debouncedSave(value);
     },
-    [setDocumentText]
+    [setDocumentText, debouncedSave]
   );
 
-  const linkHoverExtension = useCallback(() => {
-    return EditorView.domEventHandlers({
-      click: (event, view) => {
-        const target = event.target as HTMLElement;
-        if (target && target.classList.contains('cm-wysiwyg-link')) {
-          const wikiId = target.getAttribute('data-target');
-          if (wikiId) {
-            event.preventDefault();
-            loadWikiContent(wikiId);
-            return true;
-          }
+  const handleLinkEvent = useCallback(
+    (event: LinkEvent) => {
+      if (event.type === 'link-click') {
+        loadWikiContent(event.target);
+      } else if (event.type === 'link-hover') {
+        if (
+          !usePopupStore.getState().isUserDragging &&
+          !window.getSelection()?.toString().trim().length
+        ) {
+          handleMouseEnter(event.event!, event.target, 0);
         }
-
-        const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
-        if (pos !== null) {
-          const line = view.state.doc.lineAt(pos);
-          const offset = pos - line.from;
-          const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
-          let match;
-
-          while ((match = regex.exec(line.text)) !== null) {
-            if (offset >= match.index && offset <= match.index + match[0].length) {
-              const wikiId = match[2];
-              event.preventDefault();
-              loadWikiContent(wikiId);
-              return true;
-            }
-          }
-        }
-        return false;
-      },
-      mousemove: (event, view) => {
-        if (usePopupStore.getState().isUserDragging) return;
-
-        if (window.getSelection()?.toString().trim().length) {
-          handleMouseLeave('any');
-          return;
-        }
-
-        const el = event.target as HTMLElement;
-        if (el && el.classList.contains('cm-wysiwyg-link')) {
-          const targetWikiId = el.getAttribute('data-target');
-          if (targetWikiId) {
-            handleMouseEnter(event, targetWikiId, 0);
-            return;
-          }
-        }
-
-        const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
-        if (pos !== null) {
-          const coords = view.coordsAtPos(pos);
-          if (coords && (event.clientY < coords.top || event.clientY > coords.bottom)) {
-            handleMouseLeave('any');
-            return;
-          }
-
-          const line = view.state.doc.lineAt(pos);
-          const offset = pos - line.from;
-          const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
-          let match;
-          let found = false;
-
-          while ((match = regex.exec(line.text)) !== null) {
-            if (offset >= match.index && offset <= match.index + match[0].length) {
-              const wikiId = match[2];
-              handleMouseEnter(event, wikiId, 0);
-              found = true;
-              break;
-            }
-          }
-          if (!found) handleMouseLeave('any');
-        } else {
-          handleMouseLeave('any');
-        }
-      },
-      mouseleave: () => {
+      } else if (event.type === 'link-leave') {
         handleMouseLeave('any');
-      },
-    });
-  }, [handleMouseEnter, handleMouseLeave, loadWikiContent])();
+      }
+    },
+    [handleMouseEnter, handleMouseLeave, loadWikiContent]
+  );
+
+  const linkHoverExtension = wysiwygLinkExtension(handleLinkEvent);
 
   return (
     <main className="flex-1 flex flex-col h-full overflow-y-auto custom-scrollbar">
@@ -165,28 +140,17 @@ export function EditorContent({ isZenMode, onToggleZen, onOpenPage }: EditorCont
       <div className="px-12 lg:px-20 pt-10 pb-64 flex justify-center">
         <div className="w-full max-w-[680px] relative">
           <div className="mb-4">
-            <span className="font-sys text-[11px] uppercase tracking-widest text-[var(--bh-red)] block mb-4">
+            <span className="font-sys text-[11px] uppercase tracking-widest text-bh-red block mb-4">
               ACTIVE DOCUMENT // MAIN DRAFT
             </span>
           </div>
 
           <div className="animate-in fade-in duration-150">
-            <CodeMirror
+            <MarkdownEditor
+              docId="main-editor-doc"
               value={documentText}
               onChange={handleCodeMirrorChange}
-              extensions={[
-                markdown(),
-                linkHoverExtension,
-                wysiwygLinkFolderPlugin,
-                EditorView.lineWrapping,
-              ]}
-              theme="none"
-              basicSetup={{
-                lineNumbers: false,
-                foldGutter: false,
-                highlightActiveLine: false,
-                bracketMatching: false,
-              }}
+              extensions={[...wysiwygLinkExtensions, linkHoverExtension]}
             />
           </div>
         </div>

@@ -18,7 +18,7 @@ export {
 } from './documents';
 
 // 双向链接操作
-export { updateDocumentLinks, getForwardLinks, getAllLinks, deleteDocumentLinks } from './links';
+export { updateDocumentLinks, getForwardLinks, getAllLinks } from './links';
 
 // Kanban 卡片操作
 export { getKanbanCards, addQuickCaptureNote, updateCardColumn } from './cards';
@@ -27,9 +27,6 @@ export { getKanbanCards, addQuickCaptureNote, updateCardColumn } from './cards';
 export {
   getPopoverState,
   savePopoverState,
-  updatePopoverPosition,
-  updatePopoverSize,
-  updatePopoverPositionAndSize,
   deletePopoverState,
   getAllPopoverStates,
   clearAllPopoverStates,

@@ -24,50 +24,6 @@ export async function savePopoverState(state: PopoverStateEntity): Promise<void>
 }
 
 /**
- * 更新弹窗位置
- * @param id - 弹窗 ID
- * @param x - X 坐标
- * @param y - Y 坐标
- */
-export async function updatePopoverPosition(id: string, x: number, y: number): Promise<void> {
-  await db.popoverStates.update(id, { x, y }).catch(async () => {
-    // 如果记录不存在，创建新记录
-    await db.popoverStates.put({ id, x, y, width: 500, height: 320 });
-  });
-}
-
-/**
- * 更新弹窗尺寸
- * @param id - 弹窗 ID
- * @param width - 宽度
- * @param height - 高度
- */
-export async function updatePopoverSize(id: string, width: number, height: number): Promise<void> {
-  await db.popoverStates.update(id, { width, height }).catch(async () => {
-    // 如果记录不存在，创建新记录
-    await db.popoverStates.put({ id, x: 100, y: 100, width, height });
-  });
-}
-
-/**
- * 更新弹窗位置和尺寸
- * @param id - 弹窗 ID
- * @param x - X 坐标
- * @param y - Y 坐标
- * @param width - 宽度
- * @param height - 高度
- */
-export async function updatePopoverPositionAndSize(
-  id: string,
-  x: number,
-  y: number,
-  width: number,
-  height: number
-): Promise<void> {
-  await db.popoverStates.put({ id, x, y, width, height });
-}
-
-/**
  * 删除弹窗状态
  * @param id - 弹窗 ID
  */

@@ -32,14 +32,14 @@ function CommandPaletteComponent({ isOpen, onClose, onOpenPage }: CommandPalette
             className="flex items-center gap-3 p-3 hover:bg-white/40 cursor-pointer transition-colors"
             onClick={() => handleCommand('editor')}
           >
-            <span className="text-[var(--bh-red)] font-sys text-xs font-bold font-mono">¶</span>
+            <span className="text-bh-red font-sys text-xs font-bold font-mono">¶</span>
             <span className="text-sm font-medium">Focus Editor</span>
           </div>
           <div
             className="flex items-center gap-3 p-3 hover:bg-white/40 cursor-pointer transition-colors"
             onClick={() => handleCommand('project')}
           >
-            <span className="text-[var(--bh-blue)] font-sys text-xs font-bold font-mono">#</span>
+            <span className="text-bh-blue font-sys text-xs font-bold font-mono">#</span>
             <span className="text-sm font-medium">Project Hub</span>
           </div>
         </div>

@@ -1,72 +1,111 @@
-/* ================================================
-   FILE: src/editor/extensions/wysiwyg-link.ts
-   WYSIWYG 链接扩展
-   ================================================ */
-import {
-  Decoration,
-  MatchDecorator,
-  ViewPlugin,
-  WidgetType,
-  type ViewUpdate,
-  type EditorView,
-  type DecorationSet,
-} from '@codemirror/view';
+import { Decoration, EditorView, type DecorationSet } from '@codemirror/view';
+import { StateField, type EditorState, type Transaction } from '@codemirror/state';
 
-// WYSIWYG 链接 Widget
-export class WYSIWYGLinkWidget extends WidgetType {
-  constructor(
-    readonly label: string,
-    readonly target: string
-  ) {
-    super();
-  }
-  eq(other: WYSIWYGLinkWidget) {
-    return other.label === this.label && other.target === this.target;
-  }
-  toDOM() {
-    const span = document.createElement('span');
-    span.className =
-      'cm-wysiwyg-link font-medium cursor-pointer text-[var(--bh-red)] relative px-0.5';
-    span.textContent = this.label;
-    span.setAttribute('data-target', this.target);
-    return span;
-  }
+export interface LinkInfo {
+  label: string;
+  target: string;
+  from: number;
+  to: number;
 }
 
-const linkMatcher = new MatchDecorator({
-  regexp: /\[([^\]]+)\]\(([^)]+)\)/g,
-  decoration: (match) => {
-    return Decoration.replace({
-      widget: new WYSIWYGLinkWidget(match[1], match[2]),
-      inclusive: false,
-    });
+const linkDecoration = (from: number, to: number, label: string, target: string) => {
+  return Decoration.mark({
+    start: from,
+    end: to,
+    class: 'cm-wysiwyg-link',
+    attributes: {
+      'data-target': target,
+      'data-label': label,
+    },
+    inclusive: false,
+  });
+};
+
+const updateDecorations = (state: EditorState): DecorationSet => {
+  const text = state.doc.toString();
+  const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  let match;
+  const ranges: Array<{ from: number; to: number; value: Decoration }> = [];
+
+  while ((match = regex.exec(text)) !== null) {
+    const line = state.doc.lineAt(match.index);
+    const from = line.from + (match.index - line.from);
+    const to = from + match[0].length;
+    const decoration = linkDecoration(from, to, match[1], match[2]);
+    ranges.push({ from, to, value: decoration });
+  }
+
+  return Decoration.set(ranges);
+};
+
+export const wysiwygLinkField = StateField.define<DecorationSet>({
+  create(state: EditorState): DecorationSet {
+    return updateDecorations(state);
+  },
+
+  update(decorations: DecorationSet, transaction: Transaction): DecorationSet {
+    if (transaction.docChanged || transaction.reconfigured) {
+      return updateDecorations(transaction.state);
+    }
+    return decorations.map(transaction.changes);
+  },
+
+  provide: (field: StateField<DecorationSet>) => {
+    return EditorView.decorations.from(field);
   },
 });
 
-export const wysiwygLinkFolderPlugin = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet;
-    constructor(view: EditorView) {
-      this.decorations = this.getDecorations(view);
-    }
-    update(update: ViewUpdate) {
-      if (update.docChanged || update.selectionSet) {
-        this.decorations = this.getDecorations(update.view);
-      }
-    }
-    getDecorations(view: EditorView) {
-      const builder = linkMatcher.createDeco(view);
-      const selection = view.state.selection.main;
-      const activeLine = view.state.doc.lineAt(selection.from);
+export interface LinkEvent {
+  type: 'link-click' | 'link-hover' | 'link-leave';
+  target: string;
+  label: string;
+  event?: MouseEvent;
+}
 
-      return builder.update({
-        filter: (from) => {
-          return from < activeLine.from || from > activeLine.to;
-        },
-      });
-    }
-  },
-  {
-    decorations: (v) => v.decorations,
-  }
-);
+export const wysiwygLinkExtension = (onLinkEvent: (event: LinkEvent) => void) => {
+  return EditorView.domEventHandlers({
+    click: (event, _view) => {
+      const target = event.target as HTMLElement;
+      if (target.classList.contains('cm-wysiwyg-link')) {
+        const linkTarget = target.getAttribute('data-target');
+        const linkLabel = target.getAttribute('data-label');
+        if (linkTarget) {
+          event.preventDefault();
+          onLinkEvent({
+            type: 'link-click',
+            target: linkTarget,
+            label: linkLabel || '',
+            event,
+          });
+          return true;
+        }
+      }
+      return false;
+    },
+
+    mousemove: (event, _view) => {
+      const target = event.target as HTMLElement;
+      if (target.classList.contains('cm-wysiwyg-link')) {
+        const linkTarget = target.getAttribute('data-target');
+        const linkLabel = target.getAttribute('data-label');
+        if (linkTarget) {
+          onLinkEvent({
+            type: 'link-hover',
+            target: linkTarget,
+            label: linkLabel || '',
+            event,
+          });
+          return;
+        }
+      }
+
+      onLinkEvent({ type: 'link-leave', target: '', label: '' });
+    },
+
+    mouseleave: () => {
+      onLinkEvent({ type: 'link-leave', target: '', label: '' });
+    },
+  });
+};
+
+export const wysiwygLinkExtensions = [wysiwygLinkField];

@@ -7,6 +7,14 @@
 import * as documentsDb from '@/db/documents';
 import * as linksDb from '@/db/links';
 import type { DocumentEntity } from '@/types';
+import { useUiStore } from '@/stores/ui-store';
+
+/**
+ * 显示数据库错误提示
+ */
+const showStorageError = (message: string) => {
+  useUiStore.getState().setStatus(`Storage error: ${message}`);
+};
 
 /**
  * 文档服务
@@ -19,7 +27,13 @@ export const documentService = {
    * @returns 文档实体或 undefined
    */
   async getDocument(id: string): Promise<DocumentEntity | undefined> {
-    return await documentsDb.getDocument(id);
+    try {
+      return await documentsDb.getDocument(id);
+    } catch (error) {
+      console.error('Failed to get document:', error);
+      showStorageError('Failed to load document');
+      return undefined;
+    }
   },
 
   /**
@@ -27,7 +41,13 @@ export const documentService = {
    * @returns 所有文档实体数组
    */
   async getAllDocuments(): Promise<DocumentEntity[]> {
-    return await documentsDb.getAllDocuments();
+    try {
+      return await documentsDb.getAllDocuments();
+    } catch (error) {
+      console.error('Failed to get all documents:', error);
+      showStorageError('Failed to load documents');
+      return [];
+    }
   },
 
   /**
@@ -35,14 +55,19 @@ export const documentService = {
    * @param document - 文档实体
    */
   async createDocument(document: DocumentEntity): Promise<void> {
-    // 可在此添加验证逻辑
-    if (!document.id) {
-      throw new Error('文档 ID 不能为空');
+    try {
+      if (!document.id) {
+        throw new Error('文档 ID 不能为空');
+      }
+      if (!document.title) {
+        throw new Error('文档标题不能为空');
+      }
+      await documentsDb.createDocument(document);
+    } catch (error) {
+      console.error('Failed to create document:', error);
+      showStorageError('Failed to create document');
+      throw error;
     }
-    if (!document.title) {
-      throw new Error('文档标题不能为空');
-    }
-    await documentsDb.createDocument(document);
   },
 
   /**
@@ -52,12 +77,17 @@ export const documentService = {
    * @param content - 新的文档内容（Markdown 格式）
    */
   async updateDocumentContent(id: string, content: string): Promise<void> {
-    // 检查文档是否存在
-    const doc = await documentsDb.getDocument(id);
-    if (!doc) {
-      throw new Error(`文档不存在: ${id}`);
+    try {
+      const doc = await documentsDb.getDocument(id);
+      if (!doc) {
+        throw new Error(`文档不存在: ${id}`);
+      }
+      await documentsDb.updateDocumentContent(id, content);
+    } catch (error) {
+      console.error('Failed to update document content:', error);
+      showStorageError('Failed to save document');
+      throw error;
     }
-    await documentsDb.updateDocumentContent(id, content);
   },
 
   /**
@@ -69,12 +99,17 @@ export const documentService = {
     id: string,
     metadata: Partial<Pick<DocumentEntity, 'title' | 'badge' | 'badgeClass'>>
   ): Promise<void> {
-    // 检查文档是否存在
-    const doc = await documentsDb.getDocument(id);
-    if (!doc) {
-      throw new Error(`文档不存在: ${id}`);
+    try {
+      const doc = await documentsDb.getDocument(id);
+      if (!doc) {
+        throw new Error(`文档不存在: ${id}`);
+      }
+      await documentsDb.updateDocumentMetadata(id, metadata);
+    } catch (error) {
+      console.error('Failed to update document metadata:', error);
+      showStorageError('Failed to update document');
+      throw error;
     }
-    await documentsDb.updateDocumentMetadata(id, metadata);
   },
 
   /**
@@ -83,12 +118,17 @@ export const documentService = {
    * @param id - 文档 ID
    */
   async deleteDocument(id: string): Promise<void> {
-    // 检查文档是否存在
-    const doc = await documentsDb.getDocument(id);
-    if (!doc) {
-      throw new Error(`文档不存在: ${id}`);
+    try {
+      const doc = await documentsDb.getDocument(id);
+      if (!doc) {
+        throw new Error(`文档不存在: ${id}`);
+      }
+      await documentsDb.deleteDocument(id);
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+      showStorageError('Failed to delete document');
+      throw error;
     }
-    await documentsDb.deleteDocument(id);
   },
 
   /**
@@ -98,7 +138,13 @@ export const documentService = {
    * @returns 源文档 ID 数组
    */
   async getBacklinks(id: string): Promise<string[]> {
-    return await linksDb.getBacklinks(id);
+    try {
+      return await linksDb.getBacklinks(id);
+    } catch (error) {
+      console.error('Failed to get backlinks:', error);
+      showStorageError('Failed to load backlinks');
+      return [];
+    }
   },
 
   /**
@@ -108,7 +154,13 @@ export const documentService = {
    * @returns 目标文档 ID 数组
    */
   async getForwardLinks(id: string): Promise<string[]> {
-    return await linksDb.getForwardLinks(id);
+    try {
+      return await linksDb.getForwardLinks(id);
+    } catch (error) {
+      console.error('Failed to get forward links:', error);
+      showStorageError('Failed to load links');
+      return [];
+    }
   },
 
   /**
@@ -118,7 +170,12 @@ export const documentService = {
    * @param content - 文档内容（Markdown 格式）
    */
   async updateDocumentLinks(id: string, content: string): Promise<void> {
-    await linksDb.updateDocumentLinks(id, content);
+    try {
+      await linksDb.updateDocumentLinks(id, content);
+    } catch (error) {
+      console.error('Failed to update document links:', error);
+      showStorageError('Failed to update links');
+    }
   },
 };
 

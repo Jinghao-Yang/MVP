@@ -17,6 +17,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { db, seedDatabase } from '@/db/dexie';
 import { getDocument } from '@/db/documents';
 import type { PopupData } from '@/types';
+import { EDITOR } from '@/utils/constants';
 
 /**
  * 初始化工作区的自定义 Hook
@@ -56,7 +57,7 @@ function useInitializeWorkspace() {
         restoredPopups.push({
           id: meta.id,
           title: docData.title,
-          excerpt: docData.content.substring(0, 180) + '...',
+          excerpt: docData.content.substring(0, EDITOR.EXCERPT_LENGTH) + '...',
           badge: docData.badge,
           badgeClass: docData.badgeClass,
           x: popoverPos?.x ?? 120,

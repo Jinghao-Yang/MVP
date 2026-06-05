@@ -8,9 +8,7 @@
 // ============================================================================
 export {
   useUiStore,
-  useAppStore, // @deprecated 使用 useUiStore 代替
   type UiState,
-  type AppStore, // @deprecated 使用 UiState 代替
   type RecentlyClosedPopup,
   type PinnedPopoverMetadata,
 } from './ui-store';
@@ -20,10 +18,14 @@ export {
 // ============================================================================
 export {
   usePopupStore,
-  useTimerManager,
   type PopupState,
   type RecentlyClosedPopup as RecentlyClosedPopupFromPopupStore,
 } from './popup-store';
+
+// ============================================================================
+// Timer Manager - 定时器管理
+// ============================================================================
+export { timerManager } from '@/utils/timer-manager';
 
 // ============================================================================
 // Editor Store - 管理编辑器状态

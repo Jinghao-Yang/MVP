@@ -4,6 +4,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
+@theme {
+  --color-bh-red: #C55345;
+  --color-bh-blue: #5B7B9A;
+  --color-bh-yellow: #D1A34D;
+  --color-bh-green: #708A74;
+}
+
 :root {
   --bg-canvas: #FAFAF8;
   --text-main: #1C1C1A;
@@ -26,6 +33,20 @@
 
   --sidebar-width: 240px;
   --sidebar-collapsed: 64px;
+
+  /* ================================================
+     Z-INDEX 层级系统
+     ================================================
+     统一管理应用中的层级关系，避免 z-index 混战
+     原则: 数值间距预留空间，便于后续插入新层级
+     ================================================ */
+  --z-sidebar: 100;        /* 侧边栏 */
+  --z-popover: 200;        /* 弹窗/气泡卡片 */
+  --z-dragging: 300;       /* 拖拽中的元素 (@dnd-kit, framer-motion) */
+  --z-overlay: 999;        /* 全屏遮罩层 */
+  --z-modal: 1000;         /* 模态对话框 */
+  --z-toast: 1050;         /* Toast 提示 */
+  --z-command: 1100;       /* 命令面板 */
 }
 
 body {
@@ -46,7 +67,7 @@ body {
 .font-human { font-family: 'Newsreader', serif; }
 .font-mono { font-family: 'JetBrains Mono', monospace; }
 
-/* 🌟 全局精致自定义滚动条（彻底美化主视口和侧边栏滚动条） */
+/* 🌟 全局精致自定义滚动条 */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -63,53 +84,54 @@ body {
   transition: background 0.3s ease;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(197, 83, 69, 0.35); /* 悬浮时优雅的朱砂红 */
+  background: rgba(197, 83, 69, 0.35);
   border-radius: 99px;
 }
 
-/* 隐藏部分面板的多余滚动条 */
+/* 隐藏滚动条 */
 .scroll-hide::-webkit-scrollbar { display: none; }
 
-.spring-click { transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; }
-.spring-click:hover { transform: translateY(-2px) scale(1.01); }
-.spring-click:active { transform: translateY(1px) scale(0.96); transition: transform 0.15s ease; }
+@utility glass-panel {
+  @apply backdrop-blur-xl rounded-xl;
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0,0,0,0.05);
+}
 
-.column-synthesis {
+@utility spring-click {
+  @apply transition-transform duration-[0.6s] ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer;
+  
+  &:hover {
+    @apply -translate-y-0.5 scale-[1.01];
+  }
+  
+  &:active {
+    @apply translate-y-0.5 scale-[0.96];
+    transition: transform 0.15s ease;
+  }
+}
+
+@utility column-synthesis {
   background: linear-gradient(180deg, rgba(112, 138, 116, 0.04) 0%, rgba(112, 138, 116, 0.01) 100%) !important;
   border-top: 3px solid var(--bh-green) !important;
 }
 
 .sidebar {
-  position: fixed;
-  top: 16px; left: 16px; bottom: 16px;
+  @apply fixed top-4 left-4 bottom-4 z-[30] flex flex-col overflow-hidden;
   width: var(--sidebar-width);
-  z-index: 30;
   transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s ease;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
-.sidebar.collapsed { width: 0 !important; opacity: 0; pointer-events: none; transform: translateX(-100%); }
+.sidebar.collapsed { @apply w-0 opacity-0 pointer-events-none -translate-x-full; }
 
 .main-content {
-  margin-top: 16px;
-  margin-bottom: 16px;
-  margin-right: 16px;
+  @apply mt-4 mb-4 mr-4 flex flex-col relative;
   height: calc(100vh - 32px);
-  display: flex;
-  flex-direction: column;
-  position: relative;
 }
-.sidebar.collapsed~.main-content { margin-left: 16px !important; }
+.sidebar.collapsed~.main-content { margin-left: 1rem !important; }
 
 #editor-context-panel {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  @apply flex flex-col overflow-hidden bg-transparent border-l-0 shadow-none;
   transition: width 0.75s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease, transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
-  background: transparent;
-  border-left: none;
-  box-shadow: none;
 }
 
 .cm-editor { background-color: transparent !important; }
@@ -133,13 +155,14 @@ body {
 /* WYSIWYG 双链卡片无缝物理下划线动效 */
 .cm-wysiwyg-link::after {
   content: '';
-  position: absolute;
-  bottom: 0; left: 0;
-  width: 100%; height: 1px;
+  @apply absolute bottom-0 left-0 w-full h-px;
   background-color: var(--bh-red);
   opacity: 0.3;
   transform-origin: left;
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+}
+.cm-wysiwyg-link {
+  @apply font-medium text-bh-red relative px-1 cursor-pointer;
 }
 .cm-wysiwyg-link:hover {
   background-color: rgba(197, 83, 69, 0.08) !important;
@@ -151,36 +174,27 @@ body {
 }
 
 .quick-capture {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
+  @apply fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-4 px-8 h-14;
   width: 600px;
   max-width: 90vw;
-  height: 54px;
-  display: flex;
-  align-items: center;
-  padding: 0 2rem;
-  z-index: 60;
-  gap: 1rem;
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
   color: var(--text-muted);
   transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
 }
-.quick-capture.collapsed { transform: translate(-50%, 150%); opacity: 0; }
+.quick-capture.collapsed { @apply translate-x-[-50%] translate-y-[150%] opacity-0; }
 .quick-capture input {
-  flex: 1; background: transparent; border: none; outline: none;
-  font-family: 'Space Grotesk', sans-serif; font-size: 14px; color: var(--text-main);
+  @apply flex-1 bg-transparent border-none outline-none;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  color: var(--text-main);
 }
 .quick-capture input::placeholder { color: var(--text-muted); opacity: 0.6; }
 
 body.zen-active .sidebar { transform: translateX(calc(-100% - 32px)) !important; pointer-events: none !important; }
-body.zen-active .main-content { margin-left: 16px !important; }
+body.zen-active .main-content { margin-left: 1rem !important; }
 body.zen-active #editor-context-panel { transform: translateX(120%) !important; opacity: 0 !important; pointer-events: none !important; }
 body.zen-active .quick-capture { transform: translate(-50%, 150%); }
-
-.scroll-hide::-webkit-scrollbar { display: none; }
 
 @keyframes pane-slide {
   from { opacity: 0; transform: translateY(6px); }
@@ -192,4 +206,18 @@ body.zen-active .quick-capture { transform: translate(-50%, 150%); }
 
 .drag-handle {
   touch-action: none;
+}
+
+.tag-badge {
+  @apply font-mono text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider;
+}
+
+/* 错误提示样式 */
+.error-toast {
+  @apply bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-3;
+}
+
+/* 加载指示器样式 */
+.loading-spinner {
+  @apply animate-spin rounded-full border-2 border-neutral-200 border-t-bh-red;
 }

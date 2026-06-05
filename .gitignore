@@ -1,3 +1,4 @@
 .trae
 dist
 node_modules
+.husky

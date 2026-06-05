@@ -40,11 +40,11 @@ export function ChangelogView() {
           </div>
           <div className="space-y-4 pt-10 relative group cursor-pointer changelog-node">
             <div className="absolute top-[-3px] left-0 flex flex-col items-center">
-              <div className="w-2.5 h-2.5 bg-[var(--bh-red)] border border-white shadow-sm"></div>
-              <div className="w-[1px] h-6 bg-[var(--bh-red)]"></div>
+              <div className="w-2.5 h-2.5 bg-bh-red border border-white shadow-sm"></div>
+              <div className="w-[1px] h-6 bg-bh-red"></div>
             </div>
-            <div className="font-mono text-[11px] text-[var(--bh-red)] font-bold">JUN 03</div>
-            <div className="brutal-card p-5 bg-white border-t-2 border-t-[var(--bh-red)]">
+            <div className="font-mono text-[11px] text-bh-red font-bold">JUN 03</div>
+            <div className="brutal-card p-5 bg-white border-t-2 border-t-bh-red">
               <span className="tag-badge tag-badge-red mb-2">Current</span>
               <h4 className="font-human text-lg font-bold mb-1">Axiomatic Pivot</h4>
               <p className="font-sys text-xs text-black leading-relaxed">

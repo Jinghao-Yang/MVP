@@ -81,6 +81,8 @@ export interface PopoverCardProps {
   onLinkHover: (e: MouseEvent | React.MouseEvent<Element>, wikiId: string, depth?: number) => void;
   /** 链接离开回调 */
   onLinkLeave: (wikiId: string) => void;
+  /** 链接点击回调（触摸设备使用） */
+  onLinkClick: (wikiId: string, depth?: number) => void;
   /** 拖拽开始回调 */
   onDragStart: () => void;
   /** 拖拽结束回调 */

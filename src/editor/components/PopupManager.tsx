@@ -18,6 +18,7 @@ export function PopupManager() {
     handleMouseLeave,
     handlePopoverMouseEnter,
     handlePopoverMouseLeave,
+    handleClick,
     handlePositionChange,
     handleSizeChange,
   } = usePopupStore(
@@ -31,6 +32,7 @@ export function PopupManager() {
       handleMouseLeave: state.handleMouseLeave,
       handlePopoverMouseEnter: state.handlePopoverMouseEnter,
       handlePopoverMouseLeave: state.handlePopoverMouseLeave,
+      handleClick: state.handleClick,
       handlePositionChange: state.handlePositionChange,
       handleSizeChange: state.handleSizeChange,
     }))
@@ -82,6 +84,7 @@ export function PopupManager() {
           onMouseLeave={() => handlePopoverMouseLeave(popup.id)}
           onLinkHover={handleMouseEnter}
           onLinkLeave={handleMouseLeave}
+          onLinkClick={(wikiId, depth) => handleClick(wikiId, depth)}
           onDragStart={() => setIsUserDragging(true)}
           onDragEnd={() => setIsUserDragging(false)}
         />
