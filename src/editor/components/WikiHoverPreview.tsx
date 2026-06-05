@@ -20,6 +20,7 @@ import {
 import { Pin, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { DocumentEntity } from '@/types';
+import { truncateText, removeMarkdownHeaders } from '@/utils/sanitize';
 
 export function WikiHoverPreview() {
   const { hoveredElement, hoveredWikiId, setHoveredLink, pinHoveredLink } = usePopupStore(
@@ -58,9 +59,9 @@ export function WikiHoverPreview() {
   // 3. 启用极其优雅的 safePolygon（安全路径多边形）
   const hover = useHover(context, {
     handleClose: safePolygon({
-      buffer: 2, // 允许有 2 像素物理偏差
+      buffer: 8, // 扩大安全区域避免误触发
     }),
-    delay: { open: 180, close: 250 }, // 180ms 划过开启，离开 250ms 后关闭
+    delay: { open: 120, close: 250 }, // 120ms 划过开启，离开 250ms 后关闭
   });
 
   const { getFloatingProps } = useInteractions([hover]);
@@ -75,7 +76,7 @@ export function WikiHoverPreview() {
   }, [hoveredElement, refs]);
 
   const previewText = documentData?.content
-    ? documentData.content.replace(/#+ .*\n/, '').substring(0, 150) + '...'
+    ? truncateText(removeMarkdownHeaders(documentData.content), 150)
     : 'No content configured.';
 
   return (
@@ -109,6 +110,7 @@ export function WikiHoverPreview() {
                     onClick={pinHoveredLink}
                     className="p-1 hover:bg-neutral-100 transition-colors border-none bg-transparent cursor-pointer rounded text-neutral-400 hover:text-bh-red"
                     title="Pin Card on Workspace"
+                    aria-label="固定悬浮卡片到工作区"
                   >
                     <Pin className="w-3.5 h-3.5" />
                   </button>

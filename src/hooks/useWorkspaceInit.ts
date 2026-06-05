@@ -4,6 +4,7 @@ import { db, seedDatabase } from '@/db/dexie';
 import { getDocument } from '@/db/documents';
 import type { PopupData } from '@/types';
 import { EDITOR } from '@/utils/constants';
+import { truncateText } from '@/utils/sanitize';
 
 export function useWorkspaceInit() {
   const setPopups = usePopupStore((state) => state.setPopups);
@@ -24,28 +25,27 @@ export function useWorkspaceInit() {
       await db.documents.add(leftDoc);
     }
 
-    const storedMetadata = JSON.parse(localStorage.getItem('axiom-popup-storage') || '{}');
-    const pinnedPopoverMetadata = storedMetadata?.state?.pinnedPopoverMetadata || [];
+    // 从 IndexedDB 恢复所有弹窗状态
+    const allPopoverStates = await db.popoverStates.toArray();
     const restoredPopups: PopupData[] = [];
 
-    for (const meta of pinnedPopoverMetadata) {
-      const docData = await getDocument(meta.id);
-      const popoverPos = await db.popoverStates.get(meta.id);
+    for (const popoverState of allPopoverStates) {
+      const docData = await getDocument(popoverState.id);
       if (docData) {
         restoredPopups.push({
-          id: meta.id,
+          id: popoverState.id,
           title: docData.title,
-          excerpt: docData.content.substring(0, EDITOR.EXCERPT_LENGTH) + '...',
+          excerpt: truncateText(docData.content, EDITOR.EXCERPT_LENGTH),
           badge: docData.badge,
           badgeClass: docData.badgeClass,
-          x: popoverPos?.x ?? 120,
-          y: popoverPos?.y ?? 120,
-          width: popoverPos?.width ?? 500,
-          height: popoverPos?.height ?? 320,
-          isPinned: meta.isPinned,
-          isMinimized: meta.isMinimized,
+          x: popoverState.x,
+          y: popoverState.y,
+          width: popoverState.width,
+          height: popoverState.height,
+          isPinned: popoverState.isPinned ?? true,
+          isMinimized: popoverState.isMinimized ?? false,
           depth: 1,
-          history: [meta.id],
+          history: [popoverState.id],
           historyIndex: 0,
         });
       }

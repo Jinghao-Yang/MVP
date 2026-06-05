@@ -7,7 +7,7 @@
 import * as documentsDb from '@/db/documents';
 import * as linksDb from '@/db/links';
 import type { DocumentEntity } from '@/types';
-import { useUiStore } from '@/stores/ui-store';
+import { showErrorToast, showInfoToast } from '@/utils/error-handler';
 
 /**
  * 文档内容大小限制（10万字，约 2MB）
@@ -15,21 +15,12 @@ import { useUiStore } from '@/stores/ui-store';
 const MAX_DOCUMENT_SIZE = 100000;
 
 /**
- * 显示数据库错误提示
- */
-const showStorageError = (message: string) => {
-  useUiStore.getState().setStatus(`Storage error: ${message}`);
-};
-
-/**
  * 显示内容大小警告
  */
 const showContentSizeWarning = () => {
-  useUiStore
-    .getState()
-    .setStatus(
-      `Document size exceeded ${MAX_DOCUMENT_SIZE.toLocaleString()} characters. Please reduce content.`
-    );
+  showInfoToast(
+    `Document size exceeded ${MAX_DOCUMENT_SIZE.toLocaleString()} characters. Please reduce content.`
+  );
 };
 
 /**
@@ -46,8 +37,7 @@ export const documentService = {
     try {
       return await documentsDb.getDocument(id);
     } catch (error) {
-      console.error('Failed to get document:', error);
-      showStorageError('Failed to load document');
+      showErrorToast('Failed to load document');
       return undefined;
     }
   },
@@ -60,8 +50,7 @@ export const documentService = {
     try {
       return await documentsDb.getAllDocuments();
     } catch (error) {
-      console.error('Failed to get all documents:', error);
-      showStorageError('Failed to load documents');
+      showErrorToast('Failed to load documents');
       return [];
     }
   },
@@ -80,8 +69,7 @@ export const documentService = {
       }
       await documentsDb.createDocument(document);
     } catch (error) {
-      console.error('Failed to create document:', error);
-      showStorageError('Failed to create document');
+      showErrorToast('Failed to create document');
       throw error;
     }
   },
@@ -107,9 +95,8 @@ export const documentService = {
       }
       await documentsDb.updateDocumentContent(id, content);
     } catch (error) {
-      console.error('Failed to update document content:', error);
       if (!(error instanceof Error && error.message.includes('exceeds'))) {
-        showStorageError('Failed to save document');
+        showErrorToast('Failed to save document');
       }
       throw error;
     }
@@ -131,8 +118,7 @@ export const documentService = {
       }
       await documentsDb.updateDocumentMetadata(id, metadata);
     } catch (error) {
-      console.error('Failed to update document metadata:', error);
-      showStorageError('Failed to update document');
+      showErrorToast('Failed to update document');
       throw error;
     }
   },
@@ -150,8 +136,7 @@ export const documentService = {
       }
       await documentsDb.deleteDocument(id);
     } catch (error) {
-      console.error('Failed to delete document:', error);
-      showStorageError('Failed to delete document');
+      showErrorToast('Failed to delete document');
       throw error;
     }
   },
@@ -166,8 +151,7 @@ export const documentService = {
     try {
       return await linksDb.getBacklinks(id);
     } catch (error) {
-      console.error('Failed to get backlinks:', error);
-      showStorageError('Failed to load backlinks');
+      showErrorToast('Failed to load backlinks');
       return [];
     }
   },
@@ -182,8 +166,7 @@ export const documentService = {
     try {
       return await linksDb.getForwardLinks(id);
     } catch (error) {
-      console.error('Failed to get forward links:', error);
-      showStorageError('Failed to load links');
+      showErrorToast('Failed to load links');
       return [];
     }
   },
@@ -198,8 +181,7 @@ export const documentService = {
     try {
       await linksDb.updateDocumentLinks(id, content);
     } catch (error) {
-      console.error('Failed to update document links:', error);
-      showStorageError('Failed to update links');
+      showErrorToast('Failed to update links');
     }
   },
 };

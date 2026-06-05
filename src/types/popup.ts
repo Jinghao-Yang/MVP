@@ -55,6 +55,10 @@ export interface PopoverStateEntity {
   width: number;
   /** 弹窗高度 */
   height: number;
+  /** 是否固定 */
+  isPinned: boolean;
+  /** 是否最小化 */
+  isMinimized: boolean;
 }
 
 /**
@@ -69,10 +73,14 @@ export interface PopoverCardProps {
   onPinToggle: () => void;
   /** 切换最小化状态回调 */
   onMinimizeToggle: () => void;
-  /** 位置变化回调 */
+  /** 位置变化回调（仅更新内存状态） */
   onPositionChange: (x: number, y: number) => void;
-  /** 尺寸变化回调 */
+  /** 尺寸变化回调（仅更新内存状态） */
   onSizeChange: (w: number, h: number) => void;
+  /** 位置持久化回调（拖拽结束时调用） */
+  onPositionSave: () => void;
+  /** 尺寸持久化回调（调整大小结束时调用） */
+  onSizeSave: () => void;
   /** 鼠标进入回调 */
   onMouseEnter: () => void;
   /** 鼠标离开回调 */

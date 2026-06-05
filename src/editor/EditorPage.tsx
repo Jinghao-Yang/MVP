@@ -1,8 +1,9 @@
 /* ================================================
    FILE: src/editor/EditorPage.tsx
    ================================================ */
-import { useEffect, useRef, useCallback } from 'react';
-import { useUiStore, type UiState } from '@/stores/ui-store';
+import { useEffect, useRef, useCallback, useState } from 'react';
+import { useUiStore } from '@/stores/ui-store';
+import { useEditorStore, type EditorState } from '@/stores/editor-store';
 import { usePopupStore } from '@/stores/popup-store';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/dexie';
@@ -11,10 +12,12 @@ import { MarkdownEditor } from './components/MarkdownEditor';
 import { EditorRightPane } from './components/EditorRightPane';
 import { PopupManager } from './components/PopupManager';
 import { MinimizedPopups } from './components/MinimizedPopups';
-import { WikiHoverPreview } from './components/WikiHoverPreview'; // 新增
+import { WikiHoverPreview } from './components/WikiHoverPreview';
+import { DocumentSplitter } from './components/DocumentSplitter';
 import { wysiwygLinkExtension } from './extensions/wysiwyg-link';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import type { DocumentEntity } from '@/types';
+import { MAX_DOCUMENT_SIZE } from './components/MarkdownEditor';
 
 export function EditorPage({
   isZenMode,
@@ -24,11 +27,13 @@ export function EditorPage({
   onToggleZen: () => void;
   openPage: (page: string) => void;
 }) {
-  const documentText = useUiStore((state: UiState) => state.documentText);
-  const setDocumentText = useUiStore((state: UiState) => state.setDocumentText);
+  const documentText = useEditorStore((state: EditorState) => state.documentText);
+  const setDocumentText = useEditorStore((state: EditorState) => state.setDocumentText);
+  const markAsSaved = useEditorStore((state: EditorState) => state.markAsSaved);
   const setHoveredLink = usePopupStore((state) => state.setHoveredLink);
 
   const mainDocument = useLiveQuery(() => db.documents.get('main-editor-doc'), []);
+  const [showSplitter, setShowSplitter] = useState(false);
 
   // 1. 同步主编辑器文本至 IndexedDB 实现持久防抖保存
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,9 +48,10 @@ export function EditorPage({
           content: newText,
           updatedAt: Date.now(),
         });
+        markAsSaved();
       }, 500); // 500ms 极其静默的后台保存
     },
-    [setDocumentText]
+    [setDocumentText, markAsSaved]
   );
 
   useEffect(() => {
@@ -69,6 +75,47 @@ export function EditorPage({
     [setHoveredLink]
   );
 
+  // 3. 处理文档导出
+  const handleExport = useCallback(() => {
+    const blob = new Blob([documentText], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `document-${Date.now()}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [documentText]);
+
+  // 4. 处理文档分拆
+  const handleSplit = useCallback(() => {
+    setShowSplitter(true);
+  }, []);
+
+  const handleSplitConfirm = useCallback(
+    async (sections: Array<{ id: string; title: string; content: string }>) => {
+      // 为每个分拆的部分创建新文档
+      for (const section of sections) {
+        const docId = `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        await db.documents.add({
+          id: docId,
+          title: section.title,
+          content: section.content,
+          badge: 'Split',
+          badgeClass: 'tag-badge-green',
+          updatedAt: Date.now(),
+        });
+      }
+
+      setShowSplitter(false);
+
+      // 可选：提示用户分拆成功
+      console.log(`Successfully split into ${sections.length} documents`);
+    },
+    []
+  );
+
   // 注入 CodeMirror 高性能悬停代理
   const editorExtensions = [wysiwygLinkExtension(handleLinkEvent)];
 
@@ -83,6 +130,7 @@ export function EditorPage({
           <button
             onClick={onToggleZen}
             className="p-2.5 hover:bg-black/5 transition-colors border-none bg-transparent cursor-pointer rounded-lg text-neutral-500 hover:text-black"
+            aria-label={isZenMode ? '退出禅模式' : '进入禅模式'}
           >
             {isZenMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
@@ -94,12 +142,15 @@ export function EditorPage({
             <h1 className="font-human text-4xl font-normal text-black outline-none tracking-tight leading-snug">
               Topology Math
             </h1>
-            <div className="editor-container flex-1">
+            <div className="editor-container flex-1 min-h-0">
               <MarkdownEditor
                 docId="main-editor-doc"
                 value={documentText}
                 onChange={handleEditorChange}
                 extensions={editorExtensions}
+                showStats={true}
+                onExport={handleExport}
+                onSplit={handleSplit}
               />
             </div>
           </div>
@@ -120,6 +171,16 @@ export function EditorPage({
 
       {/* 最小化系统 */}
       <MinimizedPopups />
+
+      {/* 文档分拆工具 */}
+      {showSplitter && (
+        <DocumentSplitter
+          content={documentText}
+          onSplit={handleSplitConfirm}
+          onClose={() => setShowSplitter(false)}
+          maxSize={MAX_DOCUMENT_SIZE}
+        />
+      )}
     </div>
   );
 }

@@ -6,7 +6,8 @@ interface UseDraggablePopupReturn {
     e: React.PointerEvent,
     onDragStart: () => void,
     onDragEnd: () => void,
-    onSizeChange: (w: number, h: number) => void
+    onSizeChange: (w: number, h: number) => void,
+    onSizeSave: () => void
   ) => void;
 }
 
@@ -21,7 +22,8 @@ export function useDraggablePopup(
       e: React.PointerEvent,
       onDragStart: () => void,
       onDragEnd: () => void,
-      onSizeChange: (w: number, h: number) => void
+      onSizeChange: (w: number, h: number) => void,
+      onSizeSave: () => void
     ) => {
       e.preventDefault();
       onDragStart();
@@ -35,12 +37,13 @@ export function useDraggablePopup(
         const nextW = Math.max(320, startW + (moveEvent.clientX - startX));
         const nextH = Math.max(200, startH + (moveEvent.clientY - startY));
         setSize({ w: nextW, h: nextH });
+        onSizeChange(nextW, nextH);
       };
 
       const onUp = () => {
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
-        onSizeChange(size.w, size.h);
+        onSizeSave();
         onDragEnd();
       };
 

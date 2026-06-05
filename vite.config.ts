@@ -47,5 +47,11 @@ export default defineConfig(({ mode }) => {
     server: {
       force: false,
     },
+    // Vitest 配置
+    test: {
+      globals: true,
+      environment: 'node',
+      include: ['src/**/*.test.ts'],
+    },
   };
 });

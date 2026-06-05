@@ -37,7 +37,11 @@ interface DatabaseViewProps {
 
 export function DatabaseView({ openPage }: DatabaseViewProps) {
   // 1. 数据绑定 - 使用 LiveQuery 订阅 Dexie 中的 Documents
-  const documents = useLiveQuery(() => db.documents.toArray()) as DocumentEntity[] | undefined;
+  const documents = useLiveQuery(() =>
+    db.documents.toArray((docs) =>
+      docs.map(({ content: _content, ...meta }) => meta as DocumentEntity)
+    )
+  ) as DocumentEntity[] | undefined;
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [editingCellId, setEditingCellId] = useState<string | null>(null);

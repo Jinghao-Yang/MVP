@@ -4,12 +4,8 @@ import {
   updateCardColumn as dbUpdateCardColumn,
   addQuickCaptureNote,
 } from '@/db/cards';
-import { useUiStore } from '@/stores/ui-store';
+import { showErrorToast } from '@/utils/error-handler';
 import type { KanbanCardEntity } from '@/types';
-
-const showError = (message: string) => {
-  useUiStore.getState().setStatus(message);
-};
 
 export interface KanbanState {
   kanbanCards: KanbanCardEntity[];
@@ -33,10 +29,9 @@ export const useKanbanStore = create<KanbanState>()((set, get) => ({
       const cards = await getKanbanCards();
       set({ kanbanCards: cards });
     } catch (error) {
-      console.error('Failed to load kanban cards:', error);
       const errorMsg = 'Failed to load cards. Please try again.';
       set({ error: errorMsg });
-      showError(errorMsg);
+      showErrorToast(errorMsg);
     }
   },
 
@@ -46,10 +41,9 @@ export const useKanbanStore = create<KanbanState>()((set, get) => ({
       const cards = await dbUpdateCardColumn(cardId, newColumnId);
       set({ kanbanCards: cards });
     } catch (err) {
-      console.error('Failed to update card column:', err);
       const errorMsg = 'Failed to update card position. Please try again.';
       set({ error: errorMsg });
-      showError(errorMsg);
+      showErrorToast(errorMsg);
     }
   },
 
@@ -63,10 +57,9 @@ export const useKanbanStore = create<KanbanState>()((set, get) => ({
       set({ quickCaptureText: '', kanbanCards: cards });
       setStatus('Idea Captured as Fleeting Card.');
     } catch (err) {
-      console.error('Failed to submit quick capture:', err);
       const errorMsg = 'Failed to save your note. Please try again.';
       set({ error: errorMsg });
-      showError(errorMsg);
+      showErrorToast(errorMsg);
     }
   },
 

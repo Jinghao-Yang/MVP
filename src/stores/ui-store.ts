@@ -30,14 +30,14 @@ export interface UiState {
   showStatus: boolean;
   /** 侧边栏是否固定 */
   isSidebarPinned: boolean;
+  /** 移动端侧边栏是否打开 */
+  isMobileSidebarOpen: boolean;
 
   // ============================================
   // 跨组件共享状态
   // ============================================
   /** 当前打开的 Wiki ID */
   currentWikiId: string | null;
-  /** 主编辑器文档文本 */
-  documentText: string;
 
   // ============================================
   // 核心 UI Actions
@@ -51,17 +51,17 @@ export interface UiState {
   /** 设置命令面板打开状态 */
   setCommandPaletteOpen: (open: boolean) => void;
   /** 设置状态消息 */
-  setStatus: (msg: string) => void;
+  setStatus: (status: string) => void;
   /** 切换侧边栏固定状态 */
   toggleSidebarPin: () => void;
+  /** 设置移动端侧边栏打开状态 */
+  setMobileSidebarOpen: (open: boolean) => void;
 
   // ============================================
   // 跨组件共享 Actions
   // ============================================
   /** 设置当前 Wiki ID */
   setCurrentWikiId: (id: string | null) => void;
-  /** 设置文档文本 */
-  setDocumentText: (text: string) => void;
 }
 
 // ============================================
@@ -91,17 +91,23 @@ export const useUiStore = create<UiState>()(
       statusMsg: 'System active.',
       showStatus: true,
       isSidebarPinned: false,
+      isMobileSidebarOpen: false,
 
       // ============================================
       // 跨组件共享状态初始值
       // ============================================
       currentWikiId: null,
-      documentText: '',
 
       // ============================================
       // 核心 UI Actions 实现
       // ============================================
-      setActivePage: (page) => set({ activePage: page, isZenMode: false, isSidebarHovered: false }),
+      setActivePage: (page) =>
+        set({
+          activePage: page,
+          isZenMode: false,
+          isSidebarHovered: false,
+          isMobileSidebarOpen: false,
+        }),
 
       setSidebarHovered: (hovered) => {
         if (get().isZenMode) return;
@@ -122,12 +128,12 @@ export const useUiStore = create<UiState>()(
 
       toggleSidebarPin: () => set((state) => ({ isSidebarPinned: !state.isSidebarPinned })),
 
+      setMobileSidebarOpen: (open) => set({ isMobileSidebarOpen: open }),
+
       // ============================================
       // 跨组件共享 Actions 实现
       // ============================================
       setCurrentWikiId: (id) => set({ currentWikiId: id }),
-
-      setDocumentText: (text) => set({ documentText: text }),
     }),
     {
       name: 'axiom-ui-storage',

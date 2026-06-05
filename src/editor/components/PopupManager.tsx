@@ -1,7 +1,7 @@
 /* ================================================
    FILE: src/editor/components/PopupManager.tsx
    ================================================ */
-import { useMemo, useCallback, useRef } from 'react';
+import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { PopupData } from '@/types';
 import { usePopupStore, type PopupState } from '@/stores/popup-store';
@@ -21,6 +21,8 @@ export function PopupManager() {
     handleClick,
     handlePositionChange,
     handleSizeChange,
+    savePopupPosition,
+    savePopupSize,
   } = usePopupStore(
     useShallow((state: PopupState) => ({
       popups: state.popups,
@@ -35,38 +37,14 @@ export function PopupManager() {
       handleClick: state.handleClick,
       handlePositionChange: state.handlePositionChange,
       handleSizeChange: state.handleSizeChange,
+      savePopupPosition: state.savePopupPosition,
+      savePopupSize: state.savePopupSize,
     }))
   );
 
   const visiblePopups = useMemo(() => {
     return popups.filter((p: PopupData) => !p.isMinimized);
   }, [popups]);
-
-  const lastUpdateRef = useRef<Map<string, number>>(new Map());
-
-  const throttledPositionChange = useCallback(
-    (id: string, x: number, y: number) => {
-      const now = performance.now();
-      const lastUpdate = lastUpdateRef.current.get(id) || 0;
-      if (now - lastUpdate >= 16) {
-        lastUpdateRef.current.set(id, now);
-        handlePositionChange(id, x, y);
-      }
-    },
-    [handlePositionChange]
-  );
-
-  const throttledSizeChange = useCallback(
-    (id: string, w: number, h: number) => {
-      const now = performance.now();
-      const lastUpdate = lastUpdateRef.current.get(id) || 0;
-      if (now - lastUpdate >= 16) {
-        lastUpdateRef.current.set(id, now);
-        handleSizeChange(id, w, h);
-      }
-    },
-    [handleSizeChange]
-  );
 
   return (
     <>
@@ -77,8 +55,10 @@ export function PopupManager() {
           onClose={() => closePopup(popup.id)}
           onPinToggle={() => togglePin(popup.id)}
           onMinimizeToggle={() => toggleMinimize(popup.id)}
-          onPositionChange={(x: number, y: number) => throttledPositionChange(popup.id, x, y)}
-          onSizeChange={(w, h) => throttledSizeChange(popup.id, w, h)}
+          onPositionChange={(x: number, y: number) => handlePositionChange(popup.id, x, y)}
+          onSizeChange={(w, h) => handleSizeChange(popup.id, w, h)}
+          onPositionSave={() => savePopupPosition(popup.id)}
+          onSizeSave={() => savePopupSize(popup.id)}
           onMouseEnter={() => handlePopoverMouseEnter(popup.id)}
           onMouseLeave={() => handlePopoverMouseLeave(popup.id)}
           onLinkHover={handleMouseEnter}

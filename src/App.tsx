@@ -6,6 +6,7 @@ import { Sidebar } from '@/layout/Sidebar';
 import { QuickCapture } from '@/components/QuickCapture';
 import { MobileSidebar } from '@/components/layout/MobileSidebar';
 import { PageRouter } from '@/components/layout/PageRouter';
+import { CommandPalette } from '@/components/CommandPalette';
 import { useUiStore, type UiState } from '@/stores/ui-store';
 import { useKanbanStore } from '@/stores/kanban-store';
 import { useShallow } from 'zustand/react/shallow';
@@ -64,6 +65,11 @@ function AppContent() {
 
   useHotkeys('mod+i', (e) => {
     e.preventDefault();
+    // Zen 模式下禁用快捷键并显示提示
+    if (isZenMode) {
+      toast.info('Zen 模式下无法快速捕获');
+      return;
+    }
     // 聚焦快速捕获输入框的简单逻辑
     const input = document.querySelector('.quick-capture input') as HTMLInputElement;
     if (input) input.focus();
@@ -102,6 +108,12 @@ function AppContent() {
 
       {/* 页面路由 */}
       <PageRouter isSidebarActiveCollapsed={isSidebarActiveCollapsed} />
+
+      {/* 命令面板 */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+      />
 
       {/* 快捷捕获 */}
       <QuickCapture

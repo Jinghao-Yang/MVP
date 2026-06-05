@@ -1,33 +1,42 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { DndContext, DragEndEvent } from '@dnd-kit/core';
 import { Database, Sparkles, AlertCircle, X } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/dexie';
-import { type KanbanCardEntity } from '@/types';
 import { LedgerColumn } from './components/LedgerColumn';
 import { useKanbanStore } from '@/stores/kanban-store';
 
 export function KanbanBoard() {
   const [isSynthesizing, setIsSynthesizing] = useState(false);
 
-  const kanbanCards = useLiveQuery(() => db.kanbanCards.toArray(), []);
+  // 按列拆分订阅，减少不必要的重渲染
+  const fleetingCards = useLiveQuery(
+    () => db.kanbanCards.where('columnId').equals('fleeting').sortBy('order'),
+    []
+  );
+  const seedlingCards = useLiveQuery(
+    () => db.kanbanCards.where('columnId').equals('seedling').sortBy('order'),
+    []
+  );
+  const evergreenCards = useLiveQuery(
+    () => db.kanbanCards.where('columnId').equals('evergreen').sortBy('order'),
+    []
+  );
+  const synthesisCards = useLiveQuery(
+    () => db.kanbanCards.where('columnId').equals('synthesis').sortBy('order'),
+    []
+  );
+
   const updateCardColumn = useKanbanStore((state) => state.updateCardColumn);
   const error = useKanbanStore((state) => state.error);
   const clearError = useKanbanStore((state) => state.clearError);
 
-  const isLoading = kanbanCards === undefined;
-
-  const kanbanData = useMemo(() => {
-    if (!kanbanCards) {
-      return { fleeting: [], seedling: [], evergreen: [], synthesis: [] };
-    }
-    return {
-      fleeting: kanbanCards.filter((c: KanbanCardEntity) => c.columnId === 'fleeting'),
-      seedling: kanbanCards.filter((c: KanbanCardEntity) => c.columnId === 'seedling'),
-      evergreen: kanbanCards.filter((c: KanbanCardEntity) => c.columnId === 'evergreen'),
-      synthesis: kanbanCards.filter((c: KanbanCardEntity) => c.columnId === 'synthesis'),
-    };
-  }, [kanbanCards]);
+  // 只有所有列都加载完成才算加载完成
+  const isLoading =
+    fleetingCards === undefined ||
+    seedlingCards === undefined ||
+    evergreenCards === undefined ||
+    synthesisCards === undefined;
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -89,19 +98,19 @@ export function KanbanBoard() {
         ) : (
           <DndContext onDragEnd={handleDragEnd}>
             <div className="grid grid-cols-1 md:grid-cols-4 h-full flex-1">
-              <LedgerColumn id="fleeting" index="01" title="Fleeting" cards={kanbanData.fleeting} />
-              <LedgerColumn id="seedling" index="02" title="Seedling" cards={kanbanData.seedling} />
+              <LedgerColumn id="fleeting" index="01" title="Fleeting" cards={fleetingCards || []} />
+              <LedgerColumn id="seedling" index="02" title="Seedling" cards={seedlingCards || []} />
               <LedgerColumn
                 id="evergreen"
                 index="03"
                 title="Evergreen"
-                cards={kanbanData.evergreen}
+                cards={evergreenCards || []}
               />
               <LedgerColumn
                 id="synthesis"
                 index="04 // Terminal"
                 title="Synthesis"
-                cards={kanbanData.synthesis}
+                cards={synthesisCards || []}
                 isTerminal
               />
             </div>

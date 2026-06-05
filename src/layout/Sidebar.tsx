@@ -145,6 +145,7 @@ function SidebarComponent({
               <button
                 onClick={() => setStatus('Creating new...')}
                 className="spring-click hover-ui w-full flex items-center gap-3 px-3 py-2 text-left group rounded-none cursor-pointer border-none bg-transparent"
+                aria-label="创建新节点"
               >
                 <Plus className="w-4 h-4 opacity-50 group-hover:opacity-100 group-hover:text-black transition-colors" />
                 <span className="nav-text flex-1 text-xs">New Node</span>
@@ -164,13 +165,14 @@ function SidebarComponent({
                   <span className="nav-text flex-1">Today</span>
                   <ChevronRight className="w-3.5 h-3.5 action-icon" />
                 </div>
-                <div
-                  className="spring-click hover-ui px-3 py-2 flex items-center gap-3 group cursor-pointer"
+                <button
+                  className="spring-click hover-ui w-full px-3 py-2 flex items-center gap-3 group cursor-pointer border-none bg-transparent"
                   onClick={() => setStatus('Opening Recent…')}
+                  aria-label="打开最近流程"
                 >
                   <span className="indicator-dot dot-blue opacity-30"></span>
                   <span className="nav-text flex-1">Recent Flow</span>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -187,13 +189,14 @@ function SidebarComponent({
                   <span className="nav-text flex-1">Topology Math</span>
                   <ChevronRight className="w-3.5 h-3.5 action-icon" />
                 </div>
-                <div
-                  className="spring-click hover-ui px-3 py-2 flex items-center gap-3 group cursor-pointer"
+                <button
+                  className="spring-click hover-ui w-full px-3 py-2 flex items-center gap-3 group cursor-pointer border-none bg-transparent"
                   onClick={() => setStatus('Opening Personal Space…')}
+                  aria-label="打开系统设计空间"
                 >
                   <span className="indicator-dot dot-green opacity-30"></span>
                   <span className="nav-text flex-1">System Design</span>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -202,13 +205,14 @@ function SidebarComponent({
                 System
               </div>
               <div className="space-y-1">
-                <div
-                  className="spring-click hover-ui px-3 py-2 flex items-center gap-3 group cursor-pointer"
+                <button
+                  className="spring-click hover-ui w-full px-3 py-2 flex items-center gap-3 group cursor-pointer border-none bg-transparent"
                   onClick={() => setStatus('Opening Settings…')}
+                  aria-label="打开设置"
                 >
                   <Settings className="w-4 h-4 opacity-50 group-hover:opacity-100 group-hover:text-black transition-colors" />
                   <span className="nav-text flex-1">Settings</span>
-                </div>
+                </button>
               </div>
             </div>
           </nav>
@@ -217,6 +221,7 @@ function SidebarComponent({
             <button
               onClick={toggleSidebarPin}
               className="w-full flex items-center justify-center gap-2 py-2 text-xs font-mono hover:bg-black/5 transition-colors cursor-pointer border-none bg-transparent"
+              aria-label={isSidebarPinned ? '取消固定侧边栏' : '固定侧边栏'}
             >
               {isSidebarPinned ? (
                 <>

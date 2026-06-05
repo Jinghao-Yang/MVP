@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pin, Minimize2 } from 'lucide-react';
+import { Pin, Minimize2, X } from 'lucide-react';
 import { motion, useDragControls } from 'motion/react';
 import type { PopoverCardProps } from '@/types';
 import { usePopupStore } from '@/stores/popup-store';
@@ -13,6 +13,8 @@ export const PopoverCard: React.FC<PopoverCardProps> = React.memo(
     onMinimizeToggle,
     onPositionChange,
     onSizeChange,
+    onPositionSave,
+    onSizeSave,
     onMouseEnter,
     onMouseLeave,
     onLinkHover,
@@ -66,7 +68,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = React.memo(
 
     const handleResize = (e: React.PointerEvent) => {
       bringToFront(popup.id);
-      handleResizeStart(e, onDragStart, onDragEnd, onSizeChange);
+      handleResizeStart(e, onDragStart, onDragEnd, onSizeChange, onSizeSave);
     };
 
     return (
@@ -89,6 +91,7 @@ export const PopoverCard: React.FC<PopoverCardProps> = React.memo(
           const nextX = popup.x + info.offset.x;
           const nextY = popup.y + info.offset.y;
           onPositionChange(nextX, nextY);
+          onPositionSave();
           onDragEnd();
         }}
         onMouseEnter={onMouseEnter}
@@ -116,37 +119,50 @@ export const PopoverCard: React.FC<PopoverCardProps> = React.memo(
           <div
             onPointerDown={isSmallScreen ? undefined : (e) => dragControls.start(e)}
             className={`drag-handle flex items-center justify-between border-b border-black/5 bg-neutral-100/80 p-3 px-4 shrink-0 ${isSmallScreen ? 'cursor-default' : 'cursor-move'}`}
+            role="button"
+            tabIndex={0}
+            aria-label="拖拽移动弹窗"
+            onKeyDown={(e) => {
+              if ((e.key === 'Enter' || e.key === ' ') && !isSmallScreen) {
+                e.preventDefault();
+              }
+            }}
           >
             <div className="flex items-center gap-2">
               <span className={`tag-badge ${popup.badgeClass}`}>{popup.badge}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPinToggle();
-                }}
-                className={`p-1 hover:bg-black/10 transition-colors border-none cursor-pointer bg-transparent ${popup.isPinned ? 'text-bh-red' : 'text-neutral-400'}`}
-              >
-                <Pin className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMinimizeToggle();
-                }}
-                className="p-1 hover:bg-black/10 transition-colors text-neutral-400 hover:text-black border-none cursor-pointer bg-transparent"
-              >
-                <Minimize2 className="w-3.5 h-3.5" />
-              </button>
+              {!isSmallScreen && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPinToggle();
+                    }}
+                    className={`p-1 hover:bg-black/10 transition-colors border-none cursor-pointer bg-transparent ${popup.isPinned ? 'text-bh-red' : 'text-neutral-400'}`}
+                    aria-label={popup.isPinned ? '取消固定弹窗' : '固定弹窗'}
+                  >
+                    <Pin className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMinimizeToggle();
+                    }}
+                    className="p-1 hover:bg-black/10 transition-colors text-neutral-400 hover:text-black border-none cursor-pointer bg-transparent"
+                  >
+                    <Minimize2 className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onClose();
                 }}
-                className="p-1 hover:bg-black/10 transition-colors text-neutral-400 hover:text-black font-bold border-none cursor-pointer text-xs bg-transparent"
+                className={`p-1.5 hover:bg-black/10 transition-colors border-none cursor-pointer bg-transparent ${isSmallScreen ? 'text-neutral-500 hover:text-red-500' : 'text-neutral-400 hover:text-black'}`}
               >
-                ✕
+                <X className={`${isSmallScreen ? 'w-5 h-5' : 'w-4 h-4'}`} />
               </button>
             </div>
           </div>
@@ -190,6 +206,18 @@ export const PopoverCard: React.FC<PopoverCardProps> = React.memo(
               )}
             </p>
           </div>
+
+          {isSmallScreen && (
+            <div className="border-t border-neutral-200 bg-white/90 p-4 shrink-0">
+              <button
+                onClick={onClose}
+                className="w-full py-3 px-4 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors shadow-md hover:shadow-lg active:scale-[0.98]"
+                aria-label="关闭弹窗"
+              >
+                关闭
+              </button>
+            </div>
+          )}
         </div>
 
         {!isSmallScreen && (

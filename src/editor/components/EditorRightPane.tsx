@@ -1,76 +1,16 @@
-/* ================================================
+/* ==================================================
    FILE: src/editor/components/EditorRightPane.tsx
-   ================================================ */
-import { useState, useReducer, useCallback, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, BookOpen, Link2, Check, AlertCircle } from 'lucide-react';
+   ================================================== */
+import { ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { MarkdownEditor } from './MarkdownEditor';
-import { documentService } from '@/services/document-service';
 import { useUiStore } from '@/stores/ui-store';
 import { db } from '@/db/dexie';
+import { useDocumentHistory } from './DocumentHistoryNav';
+import { SplitEditor } from './SplitEditor';
+import { BacklinksPanel } from './BacklinksPanel';
 import type { DocumentEntity } from '@/types';
 
-type SaveStatus = 'saved' | 'saving' | 'error';
-
-// ================================================
-// 历史导航 Reducer
-// ================================================
-
-interface HistoryState {
-  documentHistory: string[];
-  historyIndex: number;
-}
-
-type HistoryAction =
-  | { type: 'LOAD_WIKI'; wikiId: string }
-  | { type: 'GO_BACK' }
-  | { type: 'GO_FORWARD' };
-
-const MAX_HISTORY_LENGTH = 50;
-
-const historyReducer = (state: HistoryState, action: HistoryAction): HistoryState => {
-  switch (action.type) {
-    case 'LOAD_WIKI': {
-      const newHistory = state.documentHistory.slice(0, state.historyIndex + 1);
-      if (newHistory[newHistory.length - 1] !== action.wikiId) {
-        newHistory.push(action.wikiId);
-      }
-      const trimmedHistory =
-        newHistory.length > MAX_HISTORY_LENGTH ? newHistory.slice(-MAX_HISTORY_LENGTH) : newHistory;
-      return {
-        documentHistory: trimmedHistory,
-        historyIndex: trimmedHistory.length - 1,
-      };
-    }
-    case 'GO_BACK':
-      if (state.historyIndex > 0) {
-        return { ...state, historyIndex: state.historyIndex - 1 };
-      }
-      return state;
-    case 'GO_FORWARD':
-      if (state.historyIndex < state.documentHistory.length - 1) {
-        return { ...state, historyIndex: state.historyIndex + 1 };
-      }
-      return state;
-    default:
-      return state;
-  }
-};
-
 export function EditorRightPane() {
-  // ================================================
-  // 组件内部状态
-  // ================================================
-
-  // 保存状态
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
-
-  // 历史导航状态
-  const [historyState, dispatchHistory] = useReducer(historyReducer, {
-    documentHistory: [],
-    historyIndex: -1,
-  });
-
   // 从全局 Store 获取当前 Wiki ID（跨组件共享）
   const currentWikiId = useUiStore((state) => state.currentWikiId);
   const setCurrentWikiId = useUiStore((state) => state.setCurrentWikiId);
@@ -79,150 +19,10 @@ export function EditorRightPane() {
   const currentDocument = useLiveQuery(
     () => (currentWikiId ? db.documents.get(currentWikiId) : Promise.resolve(undefined)),
     [currentWikiId]
-  );
+  ) as DocumentEntity | undefined;
 
-  // 本地编辑状态
-  const [localContent, setLocalContent] = useState('');
-  const [localTitle, setLocalTitle] = useState('');
-
-  // 反向链接（仍使用 documentService，因为这是派生数据）
-  const [rightPaneBacklinks, setRightPaneBacklinks] = useState<string[]>([]);
-
-  // 原始内容引用，用于检测是否有未保存的更改
-  const originalContentRef = useRef<string>('');
-
-  // 同步文档数据到本地状态
-  useEffect(() => {
-    if (currentDocument) {
-      const doc = currentDocument as unknown as DocumentEntity;
-      setLocalTitle(doc.title);
-      if (!hasUnsavedChanges) {
-        setLocalContent(doc.content);
-        originalContentRef.current = doc.content;
-      }
-    }
-  }, [currentDocument]);
-
-  // 加载反向链接
-  useEffect(() => {
-    if (currentWikiId) {
-      documentService.getBacklinks(currentWikiId).then(setRightPaneBacklinks).catch(console.error);
-    } else {
-      setRightPaneBacklinks([]);
-    }
-  }, [currentWikiId]);
-
-  // 标记是否有未保存的更改
-  const hasUnsavedChanges = localContent !== originalContentRef.current;
-
-  // ================================================
-  // 历史导航判断
-  // ================================================
-
-  const canGoBack = useCallback(() => historyState.historyIndex > 0, [historyState.historyIndex]);
-
-  const canGoForward = useCallback(
-    () => historyState.historyIndex < historyState.documentHistory.length - 1,
-    [historyState.historyIndex, historyState.documentHistory.length]
-  );
-
-  // ================================================
-  // 加载 Wiki 内容
-  // ================================================
-
-  const loadWikiContent = useCallback(
-    async (wikiId: string) => {
-      try {
-        setCurrentWikiId(wikiId);
-        dispatchHistory({ type: 'LOAD_WIKI', wikiId });
-        const backlinks = await documentService.getBacklinks(wikiId);
-        setRightPaneBacklinks(backlinks);
-      } catch (error) {
-        console.error('Failed to load wiki content:', error);
-      }
-    },
-    [setCurrentWikiId]
-  );
-
-  // ================================================
-  // 历史导航方法
-  // ================================================
-
-  const goBack = useCallback(async () => {
-    if (!canGoBack()) return;
-
-    try {
-      const newIndex = historyState.historyIndex - 1;
-      const wikiId = historyState.documentHistory[newIndex];
-      setCurrentWikiId(wikiId);
-      dispatchHistory({ type: 'GO_BACK' });
-    } catch (error) {
-      console.error('Failed to navigate back:', error);
-    }
-  }, [historyState.historyIndex, historyState.documentHistory, canGoBack, setCurrentWikiId]);
-
-  const goForward = useCallback(async () => {
-    if (!canGoForward()) return;
-
-    try {
-      const newIndex = historyState.historyIndex + 1;
-      const wikiId = historyState.documentHistory[newIndex];
-      setCurrentWikiId(wikiId);
-      dispatchHistory({ type: 'GO_FORWARD' });
-    } catch (error) {
-      console.error('Failed to navigate forward:', error);
-    }
-  }, [historyState.historyIndex, historyState.documentHistory, canGoForward, setCurrentWikiId]);
-
-  // ================================================
-  // 更新内容（仅更新本地状态）
-  // ================================================
-
-  const handleContentChange = useCallback((content: string) => {
-    setLocalContent(content);
-  }, []);
-
-  // ================================================
-  // 保存内容到数据库
-  // ================================================
-
-  const saveContent = useCallback(async () => {
-    if (!currentWikiId || !hasUnsavedChanges) return;
-
-    try {
-      setSaveStatus('saving');
-      await documentService.updateDocumentContent(currentWikiId, localContent);
-      originalContentRef.current = localContent;
-      setSaveStatus('saved');
-    } catch (error) {
-      console.error('Failed to save document:', error);
-      setSaveStatus('error');
-    }
-  }, [currentWikiId, localContent, hasUnsavedChanges]);
-
-  // ================================================
-  // 组件卸载前强制保存
-  // ================================================
-
-  useEffect(() => {
-    return () => {
-      if (hasUnsavedChanges && currentWikiId) {
-        documentService.updateDocumentContent(currentWikiId, localContent).catch(console.error);
-      }
-    };
-  }, [currentWikiId, localContent, hasUnsavedChanges]);
-
-  // ================================================
-  // 失焦时保存
-  // ================================================
-
-  const handleBlur = useCallback(() => {
-    saveContent();
-  }, [saveContent]);
-
-  // ================================================
-  // 渲染
-  // ================================================
+  // 历史导航 Hook
+  const { canGoBack, canGoForward, goBack, goForward, loadWiki } = useDocumentHistory(setCurrentWikiId);
 
   return (
     <aside
@@ -256,64 +56,15 @@ export function EditorRightPane() {
               <span className="font-mono text-[9px] uppercase tracking-widest font-bold text-neutral-400">
                 Split Pane // Reference
               </span>
-              <div className="flex items-center gap-1">
-                {saveStatus === 'saving' && (
-                  <span className="font-mono text-[8px] text-blue-500 uppercase animate-pulse">
-                    Saving...
-                  </span>
-                )}
-                {saveStatus === 'saved' && hasUnsavedChanges && (
-                  <span className="font-mono text-[8px] text-amber-500 uppercase">Unsaved</span>
-                )}
-                {saveStatus === 'saved' && !hasUnsavedChanges && (
-                  <Check className="w-3 h-3 text-green-500" />
-                )}
-                {saveStatus === 'error' && <AlertCircle className="w-3 h-3 text-red-500" />}
-              </div>
             </div>
           </header>
 
           {/* 对照卡片详细内容与实时编辑 */}
           <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
-            <div>
-              <span className="font-mono text-[10px] uppercase text-bh-red font-bold tracking-wider mb-2 block">
-                CARD INDEX // {currentWikiId.toUpperCase()}
-              </span>
-              <h3 className="font-human text-2xl font-bold text-black">{localTitle}</h3>
-            </div>
-
-            <div className="prose-split text-[14.5px] leading-relaxed">
-              <MarkdownEditor
-                docId={currentWikiId}
-                value={localContent}
-                onChange={handleContentChange}
-                onBlur={handleBlur}
-              />
-            </div>
+            <SplitEditor wikiId={currentWikiId} document={currentDocument} />
 
             {/* 动态反向引用网络 */}
-            <div className="border-t border-black/5 pt-6 space-y-3">
-              <h5 className="font-mono text-[10px] uppercase tracking-widest font-bold text-neutral-400 flex items-center gap-1.5">
-                <Link2 className="w-3.5 h-3.5 text-bh-blue" /> Linked Mentions (Backlinks)
-              </h5>
-              {rightPaneBacklinks.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {rightPaneBacklinks.map((linkId) => (
-                    <button
-                      key={linkId}
-                      onClick={() => loadWikiContent(linkId)}
-                      className="px-2.5 py-1.5 bg-neutral-100 hover:bg-neutral-200/80 border border-neutral-200/50 rounded-lg text-xs font-sys font-medium text-neutral-700 cursor-pointer transition-colors"
-                    >
-                      {linkId === 'main-editor-doc' ? 'Topology Math (Main)' : linkId}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <span className="font-mono text-[9px] uppercase text-neutral-400 italic block">
-                  No backward linkages mapped.
-                </span>
-              )}
-            </div>
+            <BacklinksPanel wikiId={currentWikiId} onLinkClick={loadWiki} />
           </div>
         </div>
       ) : (

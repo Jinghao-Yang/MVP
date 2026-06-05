@@ -1,4 +1,6 @@
+import { useRef, useCallback } from 'react';
 import { useDroppable } from '@dnd-kit/core';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { DraggableItem } from './DraggableItem';
 
 interface PipelineCard {
@@ -20,8 +22,31 @@ interface LedgerColumnProps {
   isTerminal?: boolean;
 }
 
+// 虚拟滚动阈值：卡片数量超过此值时启用虚拟滚动
+const VIRTUAL_SCROLL_THRESHOLD = 100;
+
 export function LedgerColumn({ id, title, index, cards, isTerminal }: LedgerColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id });
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 当卡片数量超过阈值时启用虚拟滚动
+  const shouldVirtualize = cards.length > VIRTUAL_SCROLL_THRESHOLD;
+
+  const rowVirtualizer = useVirtualizer({
+    count: cards.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => 120, // 每个卡片大约 120px 高
+    overscan: 5,
+  });
+
+  // 合并两个 ref
+  const setRefs = useCallback(
+    (node: HTMLDivElement | null) => {
+      setDroppableRef(node);
+      (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    },
+    [setDroppableRef]
+  );
 
   return (
     <div
@@ -42,10 +67,41 @@ export function LedgerColumn({ id, title, index, cards, isTerminal }: LedgerColu
         </div>
       </div>
 
-      <div ref={setNodeRef} className="flex-1 overflow-y-auto custom-scrollbar">
-        {cards.map((card) => (
-          <DraggableItem key={card.id} card={card} isTerminal={!!isTerminal} />
-        ))}
+      <div ref={setRefs} className="flex-1 overflow-y-auto custom-scrollbar">
+        {shouldVirtualize ? (
+          // 虚拟滚动模式
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const card = cards[virtualRow.index];
+              return (
+                <div
+                  key={card.id}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <DraggableItem card={card} isTerminal={!!isTerminal} />
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          // 普通渲染模式
+          cards.map((card) => (
+            <DraggableItem key={card.id} card={card} isTerminal={!!isTerminal} />
+          ))
+        )}
         {cards.length === 0 && (
           <div className="h-full flex items-center justify-center text-neutral-300 font-mono text-[10px] uppercase tracking-widest min-h-[200px]">
             [ Empty ]

@@ -13,6 +13,13 @@ interface ConfigEntity {
 
 const SEED_DOCUMENTS: Omit<DocumentEntity, 'updatedAt'>[] = [
   {
+    id: 'main-editor-doc',
+    title: 'Topology Math',
+    content: `# Compactness in topological spaces\n\nThis space maps the foundational structures of topological spaces. It bridges the intuitive notion of [closeness](compactness) without relying on strict metrics. The essence of compactness captures the idea that a space is, in some sense, "not too large" or "manageable", even if it contains infinitely many points.\n\nA topological space is a set endowed with a structure, called a topology, which allows defining continuous deformation of subspaces. Generalizing the [Heine–Borel](heine-borel) theorem requires us to move beyond Euclidean constraints.\n\nThis brings us to [Tychonoff's Theorem](tychonoff), which extends compactness to arbitrary products — a deep result relying on the Axiom of Choice.`,
+    badge: 'Active Draft',
+    badgeClass: 'tag-badge-blue',
+  },
+  {
     id: 'heine-borel',
     title: 'Heine–Borel Theorem',
     content: `# Heine–Borel Theorem\n\nIn metric spaces, a subset is compact iff it is [closed](compactness) and bounded. The theorem generalizes interval compactness to general Euclidean spaces.`,
@@ -110,8 +117,16 @@ class AxiomDatabase extends Dexie {
 
   constructor() {
     super('AxiomDatabase');
+    this.version(3).stores({
+      documents: 'id, title, badge, updatedAt',
+      kanbanCards: 'id, columnId, order',
+      popoverStates: 'id',
+      links: '++id, sourceId, targetId',
+      config: 'id',
+    });
+
     this.version(2).stores({
-      documents: 'id, title, badge',
+      documents: 'id, title, badge, updatedAt',
       kanbanCards: 'id, columnId, order',
       popoverStates: 'id',
       links: '++id, sourceId, targetId',
@@ -124,15 +139,6 @@ class AxiomDatabase extends Dexie {
       popoverStates: 'id',
       links: '++id, sourceId, targetId',
     });
-
-    this.on('populate', async () => {
-      await this.documents.bulkAdd(
-        SEED_DOCUMENTS.map((doc) => ({ ...doc, updatedAt: Date.now() }))
-      );
-      await this.kanbanCards.bulkAdd(SEED_KANBAN_CARDS);
-      await this.links.bulkAdd(SEED_LINKS);
-      await this.config.add({ id: 'app-config', schemaVersion: 2 });
-    });
   }
 }
 
@@ -141,7 +147,7 @@ export const db = new AxiomDatabase();
 export async function seedDatabase() {
   const currentConfig = await db.config.get('app-config');
   const currentSchemaVersion = currentConfig?.schemaVersion ?? 0;
-  const TARGET_VERSION = 2;
+  const TARGET_VERSION = 3;
 
   if (currentSchemaVersion >= TARGET_VERSION) {
     await ensureSeedDocuments();

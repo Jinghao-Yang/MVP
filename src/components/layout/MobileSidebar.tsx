@@ -1,86 +1,55 @@
 /* ================================================
    FILE: src/components/layout/MobileSidebar.tsx
    ================================================ */
-import { useMotionValue, useTransform, animate } from 'motion/react';
-import { motion } from 'motion/react';
+import { Drawer } from 'vaul';
 import { Menu } from 'lucide-react';
 import { Sidebar } from '@/layout/Sidebar';
 import { useUiStore, type UiState } from '@/stores/ui-store';
 import { useShallow } from 'zustand/react/shallow';
+import { toast } from 'sonner';
 
 export function MobileSidebar() {
-  const {
-    isSidebarHovered,
-    isZenMode,
-    isSidebarPinned,
-    setSidebarHovered,
-    setCommandPaletteOpen,
-    setStatus,
-    setActivePage,
-  } = useUiStore(
-    useShallow((state: UiState) => ({
-      isSidebarHovered: state.isSidebarHovered,
-      isZenMode: state.isZenMode,
-      isSidebarPinned: state.isSidebarPinned,
-      setSidebarHovered: state.setSidebarHovered,
-      setCommandPaletteOpen: state.setCommandPaletteOpen,
-      setStatus: state.setStatus,
-      setActivePage: state.setActivePage,
-    }))
-  );
-
-  const isSidebarActiveCollapsed = isZenMode || (!isSidebarPinned && !isSidebarHovered);
-
-  const x = useMotionValue(0);
-  const backgroundOpacity = useTransform(x, [0, 80], [0, 0.1]);
-  const sidebarTranslateX = useTransform(x, [0, 80], ['translateX(0)', 'translateX(100%)']);
-
-  const handleDragEnd = (_: unknown, info: { offset: { x: number } }) => {
-    if (info.offset.x > 80) {
-      animate(x, 80, { type: 'spring', stiffness: 300, damping: 30 });
-      setTimeout(() => {
-        setSidebarHovered(false);
-        animate(x, 0, { type: 'spring', stiffness: 300, damping: 30 });
-      }, 300);
-    } else {
-      animate(x, 0, { type: 'spring', stiffness: 300, damping: 30 });
-    }
-  };
+  const { isMobileSidebarOpen, setMobileSidebarOpen, setCommandPaletteOpen, setActivePage } =
+    useUiStore(
+      useShallow((state: UiState) => ({
+        isMobileSidebarOpen: state.isMobileSidebarOpen,
+        setMobileSidebarOpen: state.setMobileSidebarOpen,
+        setCommandPaletteOpen: state.setCommandPaletteOpen,
+        setActivePage: state.setActivePage,
+      }))
+    );
 
   return (
-    <>
-      {/* 移动端侧边栏包装 */}
-      <motion.div
-        style={{ x: sidebarTranslateX }}
-        className="fixed inset-y-0 left-0 z-[110] pointer-events-none md:hidden"
-      >
-        <Sidebar
-          openPage={setActivePage}
-          openCommandPalette={() => setCommandPaletteOpen(true)}
-          setStatus={setStatus}
-        />
-      </motion.div>
-
-      {isSidebarActiveCollapsed && (
+    <Drawer.Root
+      direction="left"
+      open={isMobileSidebarOpen}
+      onOpenChange={(open) => setMobileSidebarOpen(open)}
+    >
+      {/* 移动端边缘悬浮唤醒按钮 */}
+      {!isMobileSidebarOpen && (
         <button
-          onClick={() => setSidebarHovered(true)}
+          onClick={() => setMobileSidebarOpen(true)}
           className="fixed top-5 left-5 z-40 p-2.5 glass-panel bg-white/80 hover:bg-white shadow-md cursor-pointer flex items-center justify-center rounded-lg border border-neutral-200/50 md:hidden"
         >
           <Menu className="w-4 h-4 text-black" />
         </button>
       )}
 
-      {!isSidebarActiveCollapsed && !isSidebarPinned && (
-        <motion.div
-          drag="x"
-          dragConstraints={{ left: 0, right: 80 }}
-          dragElastic={0}
-          onDragEnd={handleDragEnd}
-          style={{ opacity: backgroundOpacity }}
-          onClick={() => setSidebarHovered(false)}
-          className="fixed inset-0 bg-black/10 backdrop-blur-[2px] z-[105] md:hidden animate-in fade-in duration-300 cursor-grab active:cursor-grabbing"
-        />
-      )}
-    </>
+      <Drawer.Portal>
+        {/* 覆盖背景 */}
+        <Drawer.Overlay className="fixed inset-0 bg-black/10 backdrop-blur-[2px] z-[105]" />
+
+        {/* 物理弹簧面板 */}
+        <Drawer.Content className="fixed top-4 left-4 bottom-4 w-[240px] z-[110] outline-none flex md:hidden">
+          <div className="h-full w-full bg-transparent flex flex-col">
+            <Sidebar
+              openPage={setActivePage}
+              openCommandPalette={() => setCommandPaletteOpen(true)}
+              setStatus={(msg) => toast(msg)}
+            />
+          </div>
+        </Drawer.Content>
+      </Drawer.Portal>
+    </Drawer.Root>
   );
 }

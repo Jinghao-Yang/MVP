@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('System Halt Caught:', error, errorInfo);
+    console.error('Error caught:', error, errorInfo);
   }
 
   public render() {
