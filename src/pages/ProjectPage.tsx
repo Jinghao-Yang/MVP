@@ -1,14 +1,21 @@
-import { useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { KanbanBoard } from './kanban/KanbanBoard';
 import { ChangelogView } from './changelog/ChangelogView';
 import { TimelineView } from './timeline/TimelineView';
 import { DatabaseView } from './database/DatabaseView';
+import { SettingsView } from './settings/SettingsView';
+import { useUiStore } from '../stores/ui-store';
 
 export function ProjectPage({ openPage }: { openPage: (p: string) => void }) {
-  const [activeTab, setActiveTab] = useState('kanban');
+  const { activeProjectTab, setActiveProjectTab } = useUiStore(
+    useShallow((state) => ({
+      activeProjectTab: state.activeProjectTab,
+      setActiveProjectTab: state.setActiveProjectTab,
+    }))
+  );
 
   const renderContent = () => {
-    switch (activeTab) {
+    switch (activeProjectTab) {
       case 'kanban':
         return <KanbanBoard />;
       case 'changelog':
@@ -17,6 +24,8 @@ export function ProjectPage({ openPage }: { openPage: (p: string) => void }) {
         return <TimelineView />;
       case 'database':
         return <DatabaseView openPage={openPage} />; // 绑定
+      case 'settings':
+        return <SettingsView />;
       default:
         return <KanbanBoard />;
     }
@@ -33,13 +42,13 @@ export function ProjectPage({ openPage }: { openPage: (p: string) => void }) {
           </div>
         </div>
         <div className="flex items-center gap-1 p-1 bg-white/30 backdrop-blur-md border border-black/5">
-          {['changelog', 'timeline', 'kanban', 'database'].map((tab) => (
+          {['changelog', 'timeline', 'kanban', 'database', 'settings'].map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`spring-click px-4 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-none border-none cursor-pointer ${activeTab === tab ? 'text-black bg-white/60 shadow-sm' : 'text-[var(--text-muted)] hover:text-black hover-ui'}`}
+              onClick={() => setActiveProjectTab(tab)}
+              className={`spring-click px-4 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-none border-none cursor-pointer ${activeProjectTab === tab ? 'text-black bg-white/60 shadow-sm' : 'text-[var(--text-muted)] hover:text-black hover-ui'}`}
             >
-              {tab === 'kanban' ? 'Ledger' : tab === 'database' ? 'Database' : tab}
+              {tab === 'kanban' ? 'Ledger' : tab === 'database' ? 'Database' : tab === 'settings' ? 'Settings' : tab}
             </button>
           ))}
         </div>
