@@ -10,6 +10,7 @@ import type {
   RelationEntity,
   TagEntity,
   AssetEntity,
+  SemanticNode,
 } from '@/types';
 
 interface ConfigEntity {
@@ -190,6 +191,7 @@ class AxiomDatabase extends Dexie {
   relations!: Table<RelationEntity>;
   tags!: Table<TagEntity>;
   assets!: Table<AssetEntity>;
+  semanticNodes!: Table<SemanticNode>;
 
   constructor() {
     super('AxiomDatabase');

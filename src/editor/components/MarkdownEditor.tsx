@@ -1,15 +1,13 @@
-import { memo, useCallback, useMemo, useState, useEffect } from 'react';
+import { memo, useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import CodeMirror, { type ReactCodeMirrorProps } from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { EditorView } from '@codemirror/view';
 import { DocumentStats } from './DocumentStats';
 import { assetService } from '@/services/asset-service';
 import { toast } from 'sonner';
+import { DOCUMENT } from '@/utils/constants';
 
 type Extension = NonNullable<ReactCodeMirrorProps['extensions']>[number];
-
-export const MAX_DOCUMENT_SIZE = 100000;
-export const WARNING_THRESHOLD = 0.8;
 
 interface MarkdownEditorProps {
   docId: string;
@@ -31,6 +29,11 @@ function arePropsEqual(prevProps: MarkdownEditorProps, nextProps: MarkdownEditor
   );
 }
 
+const processImageFile = async (file: File, fileName?: string): Promise<string> => {
+  const axiomUrl = await assetService.saveAsset(file);
+  return `\n![${fileName || file.name}](${axiomUrl})\n`;
+};
+
 export const MarkdownEditor = memo(function MarkdownEditor({
   value,
   onChange,
@@ -43,6 +46,11 @@ export const MarkdownEditor = memo(function MarkdownEditor({
 }: MarkdownEditorProps) {
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [resolvedAssets, setResolvedAssets] = useState<Record<string, string>>({});
+  const resolvedAssetsRef = useRef(resolvedAssets);
+
+  useEffect(() => {
+    resolvedAssetsRef.current = resolvedAssets;
+  }, [resolvedAssets]);
 
   // Compile matching assets from document string periodically
   useEffect(() => {
@@ -50,7 +58,8 @@ export const MarkdownEditor = memo(function MarkdownEditor({
     const matches = value.match(regex) || [];
 
     const resolveAll = async () => {
-      const newResolved: Record<string, string> = { ...resolvedAssets };
+      const currentResolved = resolvedAssetsRef.current;
+      const newResolved: Record<string, string> = { ...currentResolved };
       let updated = false;
 
       for (const rawUrl of matches) {
@@ -120,8 +129,8 @@ export const MarkdownEditor = memo(function MarkdownEditor({
           const file = files[i];
           if (file.type.startsWith('image/')) {
             e.preventDefault();
-            const axiomUrl = await assetService.saveAsset(file);
-            textToInsert += `\n![${file.name}](${axiomUrl})\n`;
+            const markdown = await processImageFile(file);
+            textToInsert += markdown;
           }
         }
         if (textToInsert) {
@@ -144,8 +153,8 @@ export const MarkdownEditor = memo(function MarkdownEditor({
           e.preventDefault();
           const file = item.getAsFile();
           if (file) {
-            const axiomUrl = await assetService.saveAsset(file);
-            textToInsert += `\n![pasted_image.png](${axiomUrl})\n`;
+            const markdown = await processImageFile(file, 'pasted_image.png');
+            textToInsert += markdown;
           }
         }
       }
@@ -165,8 +174,8 @@ export const MarkdownEditor = memo(function MarkdownEditor({
   ];
 
   const shouldShowWarning = useMemo(() => {
-    const percentage = value.length / MAX_DOCUMENT_SIZE;
-    return percentage >= WARNING_THRESHOLD;
+    const percentage = value.length / DOCUMENT.MAX_DOCUMENT_SIZE;
+    return percentage >= DOCUMENT.WARNING_THRESHOLD;
   }, [value]);
 
   const assetUrls = Object.keys(resolvedAssets);
@@ -177,8 +186,8 @@ export const MarkdownEditor = memo(function MarkdownEditor({
       {showStats && (
         <DocumentStats
           content={value}
-          maxSize={MAX_DOCUMENT_SIZE}
-          warningThreshold={WARNING_THRESHOLD}
+          maxSize={DOCUMENT.MAX_DOCUMENT_SIZE}
+          warningThreshold={DOCUMENT.WARNING_THRESHOLD}
           onExport={shouldShowWarning ? handleExport : undefined}
           onSplit={shouldShowWarning ? handleSplit : undefined}
           onToggleReadOnly={shouldShowWarning ? handleToggleReadOnly : undefined}

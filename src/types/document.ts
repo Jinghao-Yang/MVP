@@ -1,31 +1,44 @@
 /**
- * 文档相关类型定义
- * 包含文档实体、Wiki 条目等类型
+ * Document-related type definitions
+ * Contains document entities, Wiki entries, and other types
  */
 
 /**
- * 文档实体类型
- * 存储在 IndexedDB 中的文档数据结构
+ * Semantic node index (no content, no offset)
+ * It is merely a stable pointer to a specific file and metadata cache
+ */
+export interface SemanticNode {
+  id: string; // Unique Block ID (e.g., 'thm-hb')
+  docId: string; // ID of the parent Document
+  type: string; // User-defined type (e.g., 'theorem', 'person', 'definition')
+  title: string; // Node title for quick list rendering
+  properties: Record<string, unknown>; // Flat metadata, e.g., { status: 'evergreen' }
+  references: string[]; // 100% stable UUID array, never broken
+}
+
+/**
+ * Document entity type
+ * The most original and complete Markdown string stored in IndexedDB (SSOT)
  */
 export interface DocumentEntity {
-  /** 文档唯一标识符，例如: 'heine-borel', 'tychonoff', 'today', 'compactness' */
+  /** Unique document identifier, e.g.: 'heine-borel', 'tychonoff', 'today', 'compactness' */
   id: string;
-  /** 对象类型 ID */
+  /** Object type ID */
   typeId?: string;
-  /** 文档标题 */
+  /** Document title */
   title: string;
-  /** 文档内容（Markdown 格式） */
+  /** Document content (Markdown format) */
   content: string;
-  /** 文档标签名称 */
+  /** Document badge name */
   badge: string;
-  /** 文档标签样式类名 */
+  /** Document badge style class name */
   badgeClass: string;
-  /** 最后更新时间戳 */
+  /** Last update timestamp */
   updatedAt: number;
 }
 
 /**
- * 对象类型定义 (如 'Book', 'Project', 'Person')
+ * Object type definition (e.g., 'Book', 'Project', 'Person')
  */
 export interface ObjectTypeEntity {
   id: string;
@@ -34,7 +47,7 @@ export interface ObjectTypeEntity {
 }
 
 /**
- * 属性定义 (如 'status', 'author')
+ * Property definition (e.g., 'status', 'author')
  */
 export interface PropertyEntity {
   id: string;
@@ -44,7 +57,7 @@ export interface PropertyEntity {
 }
 
 /**
- * 文档属性值 (KV 存储)
+ * Document property value (KV storage)
  */
 export interface DocPropertyEntity {
   docId: string;
@@ -53,7 +66,7 @@ export interface DocPropertyEntity {
 }
 
 /**
- * 结构化关系 (强类型反链)
+ * Structured relationship (strongly typed backlink)
  */
 export interface RelationEntity {
   sourceId: string;
@@ -62,7 +75,7 @@ export interface RelationEntity {
 }
 
 /**
- * 扁平标签
+ * Flat tags
  */
 export interface TagEntity {
   docId: string;
@@ -70,7 +83,7 @@ export interface TagEntity {
 }
 
 /**
- * 附件信息表
+ * Attachment information table
  */
 export interface AssetEntity {
   id: string;
@@ -79,35 +92,35 @@ export interface AssetEntity {
 }
 
 /**
- * Wiki 条目类型
- * 用于 Wiki 数据库中的单个条目
+ * Wiki entry type
+ * Used for individual entries in the Wiki database
  */
 export interface WikiEntry {
-  /** 条目标题 */
+  /** Entry title */
   title: string;
-  /** 条目摘要 */
+  /** Entry excerpt */
   excerpt: string;
-  /** 条目标签名称 */
+  /** Entry badge name */
   badge: string;
-  /** 条目标签样式类名 */
+  /** Entry badge style class name */
   badgeClass: string;
 }
 
 /**
- * Wiki 数据库类型
- * 以 wikiId 为键，WikiEntry 为值的映射对象
+ * Wiki database type
+ * Mapping with wikiId as key and WikiEntry as value
  */
 export type WikiDb = Record<string, WikiEntry>;
 
 /**
- * 双向链接实体类型
- * 用于存储文档之间的双向链接关系
+ * Bidirectional link entity type
+ * Used to store bidirectional link relationships between documents
  */
 export interface BidirectionalLinkEntity {
-  /** 链接 ID（自增） */
+  /** Link ID (auto-increment) */
   id?: number;
-  /** 源文档 ID */
+  /** Source document ID */
   sourceId: string;
-  /** 目标文档 ID */
+  /** Target document ID */
   targetId: string;
 }

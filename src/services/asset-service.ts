@@ -1,4 +1,5 @@
 import { db } from '@/db/dexie';
+import { showErrorToast } from '@/utils/error-handler';
 
 // In-memory cache for resolved Blob URLs to prevent constant re-creation and memory leaks
 const blobUrlCache = new Map<string, string>();
@@ -36,14 +37,20 @@ export const assetService = {
       }
     } catch (err) {
       console.error('Failed to write to OPFS', err);
+      showErrorToast('Failed to save asset to storage');
     }
 
-    // Always register in Dexie to guarantee index recovery and integrity
-    await db.assets.add({
-      id: uuid,
-      filename,
-      mimeType,
-    });
+    try {
+      // Always register in Dexie to guarantee index recovery and integrity
+      await db.assets.add({
+        id: uuid,
+        filename,
+        mimeType,
+      });
+    } catch (err) {
+      console.error('Failed to register asset in database', err);
+      showErrorToast('Failed to register asset');
+    }
 
     // Also cache the blob URL in memory right away to bypass disk read latency
     const blobUrl = URL.createObjectURL(file);

@@ -2,7 +2,6 @@
  * useDocument Hook
  * 封装文档数据访问，提供文档加载、更新等功能
  */
-import { useCallback } from 'react';
 import { useEditorStore } from '@/stores/editor-store';
 import { useUiStore } from '@/stores/ui-store';
 import { documentService } from '@/services/document-service';
@@ -60,45 +59,6 @@ export function useDocument(): UseDocumentReturn {
   const currentWikiId = useUiStore((state) => state.currentWikiId);
   const setCurrentWikiId = useUiStore((state) => state.setCurrentWikiId);
 
-  // 封装 Document Service 方法
-  const getDocument = useCallback(async (id: string) => {
-    return await documentService.getDocument(id);
-  }, []);
-
-  const getAllDocuments = useCallback(async () => {
-    return await documentService.getAllDocuments();
-  }, []);
-
-  const createDocument = useCallback(async (document: DocumentEntity) => {
-    await documentService.createDocument(document);
-  }, []);
-
-  const updateDocumentContent = useCallback(async (id: string, content: string) => {
-    await documentService.updateDocumentContent(id, content);
-  }, []);
-
-  const updateDocumentMetadata = useCallback(
-    async (
-      id: string,
-      metadata: Partial<Pick<DocumentEntity, 'title' | 'badge' | 'badgeClass'>>
-    ) => {
-      await documentService.updateDocumentMetadata(id, metadata);
-    },
-    []
-  );
-
-  const deleteDocument = useCallback(async (id: string) => {
-    await documentService.deleteDocument(id);
-  }, []);
-
-  const getForwardLinks = useCallback(async (id: string) => {
-    return await documentService.getForwardLinks(id);
-  }, []);
-
-  const getBacklinks = useCallback(async (id: string) => {
-    return await documentService.getBacklinks(id);
-  }, []);
-
   return {
     // 状态
     currentWikiId,
@@ -109,14 +69,14 @@ export function useDocument(): UseDocumentReturn {
     setDocumentText,
     loadDocumentText,
 
-    // Document Service 方法
-    getDocument,
-    getAllDocuments,
-    createDocument,
-    updateDocumentContent,
-    updateDocumentMetadata,
-    deleteDocument,
-    getForwardLinks,
-    getBacklinks,
+    // Document Service 方法 - 直接导出，无需 useCallback 包装
+    getDocument: documentService.getDocument,
+    getAllDocuments: documentService.getAllDocuments,
+    createDocument: documentService.createDocument,
+    updateDocumentContent: documentService.updateDocumentContent,
+    updateDocumentMetadata: documentService.updateDocumentMetadata,
+    deleteDocument: documentService.deleteDocument,
+    getForwardLinks: documentService.getForwardLinks,
+    getBacklinks: documentService.getBacklinks,
   };
 }

@@ -12,11 +12,11 @@ export async function addQuickCaptureNote(text: string): Promise<KanbanCardEntit
 
   const newId = `c_${Date.now()}`;
 
-  await db.transaction('rw', db.kanbanCards, async () => {
+  const result = await db.transaction('rw', db.kanbanCards, async () => {
     const allCards = await db.kanbanCards.toArray();
     const fleetingCardsCount = allCards.filter((c) => c.columnId === 'fleeting').length;
 
-    await db.kanbanCards.add({
+    const newCard: KanbanCardEntity = {
       id: newId,
       columnId: 'fleeting',
       refId: `Z-${allCards.length + 10}`,
@@ -27,28 +27,40 @@ export async function addQuickCaptureNote(text: string): Promise<KanbanCardEntit
       timestamp: 'JUST NOW',
       colorClass: 'bg-bh-yellow',
       order: fleetingCardsCount,
-    });
+    };
+
+    await db.kanbanCards.add(newCard);
+
+    return [...allCards, newCard].sort((a, b) => a.order - b.order);
   });
 
-  return await getKanbanCards();
+  return result;
 }
 
 export async function updateCardColumn(
   cardId: string,
   newColumnId: string
 ): Promise<KanbanCardEntity[]> {
-  await db.transaction('rw', db.kanbanCards, async () => {
+  const result = await db.transaction('rw', db.kanbanCards, async () => {
     const card = await db.kanbanCards.get(cardId);
+    let allCards = await db.kanbanCards.toArray();
+
     if (card) {
-      const sameColumn = await db.kanbanCards.where({ columnId: newColumnId }).toArray();
+      const sameColumn = allCards.filter((c) => c.columnId === newColumnId);
       const maxOrder = sameColumn.reduce((max, item) => (item.order > max ? item.order : max), -1);
+
+      const updatedCard = { ...card, columnId: newColumnId, order: maxOrder + 1 };
 
       await db.kanbanCards.update(cardId, {
         columnId: newColumnId,
         order: maxOrder + 1,
       });
+
+      allCards = allCards.map((c) => (c.id === cardId ? updatedCard : c));
     }
+
+    return allCards.sort((a, b) => a.order - b.order);
   });
 
-  return await getKanbanCards();
+  return result;
 }

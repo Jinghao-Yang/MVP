@@ -8,18 +8,14 @@ import * as documentsDb from '@/db/documents';
 import * as linksDb from '@/db/links';
 import type { DocumentEntity } from '@/types';
 import { showErrorToast, showInfoToast } from '@/utils/error-handler';
-
-/**
- * 文档内容大小限制（10万字，约 2MB）
- */
-const MAX_DOCUMENT_SIZE = 100000;
+import { DOCUMENT } from '@/utils/constants';
 
 /**
  * 显示内容大小警告
  */
 const showContentSizeWarning = () => {
   showInfoToast(
-    `Document size exceeded ${MAX_DOCUMENT_SIZE.toLocaleString()} characters. Please reduce content.`
+    `Document size exceeded ${DOCUMENT.MAX_DOCUMENT_SIZE.toLocaleString()} characters. Please reduce content.`
   );
 };
 
@@ -62,10 +58,10 @@ export const documentService = {
   async createDocument(document: DocumentEntity): Promise<void> {
     try {
       if (!document.id) {
-        throw new Error('文档 ID 不能为空');
+        throw new Error('Document ID is required');
       }
       if (!document.title) {
-        throw new Error('文档标题不能为空');
+        throw new Error('Document title is required');
       }
       await documentsDb.createDocument(document);
     } catch (error) {
@@ -82,16 +78,16 @@ export const documentService = {
    */
   async updateDocumentContent(id: string, content: string): Promise<void> {
     try {
-      if (content.length > MAX_DOCUMENT_SIZE) {
+      if (content.length > DOCUMENT.MAX_DOCUMENT_SIZE) {
         showContentSizeWarning();
         throw new Error(
-          `Document content exceeds ${MAX_DOCUMENT_SIZE.toLocaleString()} characters`
+          `Document content exceeds ${DOCUMENT.MAX_DOCUMENT_SIZE.toLocaleString()} characters`
         );
       }
 
       const doc = await documentsDb.getDocument(id);
       if (!doc) {
-        throw new Error(`文档不存在: ${id}`);
+        throw new Error(`Document not found: ${id}`);
       }
       await documentsDb.updateDocumentContent(id, content);
     } catch (error) {
@@ -114,7 +110,7 @@ export const documentService = {
     try {
       const doc = await documentsDb.getDocument(id);
       if (!doc) {
-        throw new Error(`文档不存在: ${id}`);
+        throw new Error(`Document not found: ${id}`);
       }
       await documentsDb.updateDocumentMetadata(id, metadata);
     } catch (error) {
@@ -132,7 +128,7 @@ export const documentService = {
     try {
       const doc = await documentsDb.getDocument(id);
       if (!doc) {
-        throw new Error(`文档不存在: ${id}`);
+        throw new Error(`Document not found: ${id}`);
       }
       await documentsDb.deleteDocument(id);
     } catch (error) {

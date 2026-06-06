@@ -1,9 +1,9 @@
 /**
- * 类型定义统一导出
- * 从各个类型模块中导出所有类型定义
+ * Type definitions unified export
+ * Export all type definitions from each type module
  */
 
-// 文档相关类型
+// Document-related types
 export type {
   DocumentEntity,
   WikiEntry,
@@ -15,16 +15,17 @@ export type {
   RelationEntity,
   TagEntity,
   AssetEntity,
+  SemanticNode,
 } from './document';
 
-// 弹窗相关类型
+// Popup-related types
 export type { PopupData, PopoverStateEntity, PopoverCardProps } from './popup';
 
-// Kanban 相关类型
+// Kanban-related types
 export type { KanbanCardEntity } from './kanban';
 
-// 编辑器相关类型
+// Editor-related types
 export type { EditorPageProps, EditorSidebarProps } from './editor';
 
-// 侧边栏相关类型
+// Sidebar-related types
 export type { SidebarProps } from './sidebar';

@@ -1,13 +1,12 @@
-/* ================================================
-   FILE: src/editor/EditorPage.tsx
-   ================================================ */
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { useUiStore } from '@/stores/ui-store';
 import { useEditorStore, type EditorState } from '@/stores/editor-store';
 import { usePopupStore } from '@/stores/popup-store';
+import { useEntityGraphStore } from '@/stores/entity-graph-store';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/dexie';
+import { parserService } from '@/services/parser-service';
 import { EditorSidebar } from './EditorSidebar';
 import { MarkdownEditor } from './components/MarkdownEditor';
 import { EditorRightPane } from './components/EditorRightPane';
@@ -15,13 +14,13 @@ import { PopupManager } from './components/PopupManager';
 import { MinimizedPopups } from './components/MinimizedPopups';
 import { WikiHoverPreview } from './components/WikiHoverPreview';
 import { DocumentSplitter } from './components/DocumentSplitter';
-import { PropertyForm } from './components/PropertyForm'; // Object property sheets
+import { PropertyForm } from './components/PropertyForm';
 import { MainBacklinksPanel } from './components/MainBacklinksPanel';
 import { wysiwygLinkExtension } from './extensions/wysiwyg-link';
 import { Maximize2, Minimize2, BookOpen, MessageSquare } from 'lucide-react';
 import type { DocumentEntity } from '@/types';
 import { exportService } from '@/services/export-service';
-import { MAX_DOCUMENT_SIZE } from './components/MarkdownEditor';
+import { DOCUMENT } from '@/utils/constants';
 
 export function EditorPage({
   isZenMode,
@@ -35,6 +34,7 @@ export function EditorPage({
   const setDocumentText = useEditorStore((state: EditorState) => state.setDocumentText);
   const markAsSaved = useEditorStore((state: EditorState) => state.markAsSaved);
   const setHoveredLink = usePopupStore((state) => state.setHoveredLink);
+  const registerNodesToGraph = useEntityGraphStore((state) => state.registerNodes);
 
   const mainWikiId = useUiStore((state) => state.mainWikiId) || 'main-editor-doc';
   const currentWikiId = useUiStore((state) => state.currentWikiId);
@@ -45,23 +45,63 @@ export function EditorPage({
   const [showSplitter, setShowSplitter] = useState(false);
   const [isContextPanelOpen, setIsContextPanelOpen] = useState(false);
 
-  // 1. 同步主编辑器文本至 IndexedDB 实现持久防抖保存
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /**
+   * 🌟 【Save Gate 绝对闭环设计】
+   * 只有在输入停顿 500ms 后才触发关系写盘，保护编辑器的极致性能
+   */
   const handleEditorChange = useCallback(
     (newText: string) => {
       setDocumentText(newText);
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
       saveTimeoutRef.current = setTimeout(async () => {
+        // 1. 真相写盘
         await db.documents.update(mainWikiId, {
           content: newText,
           updatedAt: Date.now(),
         });
+
+        // 2. 清除特定内存缓存
+        parserService.invalidate(mainWikiId);
+
+        // 3. 执行单向增量解析提取
+        const { nodes, wikiLinks, tags } = parserService.parseMarkdown(mainWikiId, newText);
+
+        // 4. 将提取出的实体立刻同步至 Reactive Entity Graph 触发 UI 响应
+        registerNodesToGraph(nodes);
+
+        // 5. 写入多表事务索引
+        await db.transaction('rw', [db.semanticNodes, db.links, db.tags], async () => {
+          await db.semanticNodes.where('docId').equals(mainWikiId).delete();
+          if (nodes.length > 0) {
+            await db.semanticNodes.bulkAdd(nodes);
+          }
+
+          await db.links.where('sourceId').equals(mainWikiId).delete();
+          const legacyLinks = wikiLinks.map((target) => ({
+            sourceId: mainWikiId,
+            targetId: target,
+          }));
+          if (legacyLinks.length > 0) {
+            await db.links.bulkAdd(legacyLinks);
+          }
+
+          await db.tags.where('docId').equals(mainWikiId).delete();
+          const tagEntities = tags.map((t) => ({
+            docId: mainWikiId,
+            tag: t,
+          }));
+          if (tagEntities.length > 0) {
+            await db.tags.bulkAdd(tagEntities);
+          }
+        });
+
         markAsSaved();
-      }, 500); // 500ms 极其静默的后台保存
+      }, 500);
     },
-    [mainWikiId, setDocumentText, markAsSaved]
+    [mainWikiId, setDocumentText, markAsSaved, registerNodesToGraph]
   );
 
   useEffect(() => {
@@ -71,7 +111,6 @@ export function EditorPage({
     }
   }, [mainDocument, setDocumentText]);
 
-  // 2. 处理 CodeMirror 双链派发的 LinkEvent
   const handleLinkEvent = useCallback(
     (ev: { type: string; target: string; element?: HTMLElement }) => {
       if (ev.type === 'link-hover' && ev.element) {
@@ -85,7 +124,6 @@ export function EditorPage({
     [setHoveredLink]
   );
 
-  // 3. 处理文档导出
   const handleExport = useCallback(async () => {
     try {
       await exportService.triggerDownload(mainWikiId);
@@ -95,14 +133,12 @@ export function EditorPage({
     }
   }, [mainWikiId]);
 
-  // 4. 处理文档分拆
   const handleSplit = useCallback(() => {
     setShowSplitter(true);
   }, []);
 
   const handleSplitConfirm = useCallback(
     async (sections: Array<{ id: string; title: string; content: string }>) => {
-      // 为每个分拆的部分创建新文档
       for (const section of sections) {
         const docId = `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         await db.documents.add({
@@ -114,22 +150,16 @@ export function EditorPage({
           updatedAt: Date.now(),
         });
       }
-
       setShowSplitter(false);
-
-      // 可选：提示用户分拆成功
-      console.log(`Successfully split into ${sections.length} documents`);
     },
     []
   );
 
-  // 注入 CodeMirror 高性能悬停代理
   const editorExtensions = [wysiwygLinkExtension(handleLinkEvent)];
 
   return (
     <div className="flex-1 flex overflow-hidden h-full relative">
       <div className="flex-1 flex flex-col h-full bg-transparent overflow-hidden">
-        {/* 编辑器操作栏 */}
         <header className="h-14 px-8 border-b border-black/5 flex items-center justify-between shrink-0 bg-white/40 backdrop-blur-xl">
           <div className="flex items-center gap-2">
             <span className="tag-badge bg-bh-red/10 text-bh-red">Active Workspace</span>
@@ -172,7 +202,6 @@ export function EditorPage({
           </div>
         </header>
 
-        {/* 主编辑区 */}
         <div className="flex-1 overflow-y-auto p-12 custom-scrollbar flex flex-col">
           <div className="max-w-[720px] mx-auto w-full flex-1 flex flex-col space-y-6">
             <input
@@ -186,7 +215,6 @@ export function EditorPage({
               placeholder="Untitled Node"
             />
 
-            {/* Object property sheet (The Capacities Way) */}
             <PropertyForm docId={mainWikiId} />
 
             <div className="editor-container flex-1 min-h-0">
@@ -201,34 +229,23 @@ export function EditorPage({
               />
             </div>
 
-            {/* Backlink panel querying links and structural relations */}
             <MainBacklinksPanel docId={mainWikiId} />
           </div>
         </div>
       </div>
 
-      {/* 右侧关系分裂视口 */}
       <EditorRightPane />
-
-      {/* 极简上下文标注栏 (hidden by default, toggled via toolbar button) */}
       <EditorSidebar isZenMode={!isContextPanelOpen} />
-
-      {/* 桌面级多卡片画布叠加系统 */}
       <PopupManager />
-
-      {/* 高度灵动的 safePolygon 临时预览系统 */}
       <WikiHoverPreview />
-
-      {/* 最小化系统 */}
       <MinimizedPopups />
 
-      {/* 文档分拆工具 */}
       {showSplitter && (
         <DocumentSplitter
           content={documentText}
           onSplit={handleSplitConfirm}
           onClose={() => setShowSplitter(false)}
-          maxSize={MAX_DOCUMENT_SIZE}
+          maxSize={DOCUMENT.MAX_DOCUMENT_SIZE}
         />
       )}
     </div>

@@ -31,6 +31,16 @@ export const EDITOR = {
 };
 
 /**
+ * 文档相关常量
+ */
+export const DOCUMENT = {
+  /** 文档内容最大字符数 */
+  MAX_DOCUMENT_SIZE: 100000,
+  /** 显示警告的阈值（0-1） */
+  WARNING_THRESHOLD: 0.8,
+};
+
+/**
  * 动画常量
  */
 export const ANIMATION = {
