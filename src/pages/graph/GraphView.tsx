@@ -1,9 +1,19 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { db } from '@/db/dexie';
 
 import { useUiStore } from '@/stores/ui-store';
+
+interface D3Node extends d3.SimulationNodeDatum {
+  id: string;
+  title: string;
+  badge: string;
+}
+
+interface D3Link {
+  source: string | D3Node;
+  target: string | D3Node;
+}
 
 export function GraphView({ openPage }: { openPage: (p: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -11,7 +21,7 @@ export function GraphView({ openPage }: { openPage: (p: string) => void }) {
   const setMainWikiId = useUiStore((state) => state.setMainWikiId);
 
   useEffect(() => {
-    let simulation: d3.Simulation<d3.SimulationNodeDatum, undefined>;
+    let simulation: d3.Simulation<D3Node, D3Link>;
 
     const initGraph = async () => {
       try {
@@ -19,13 +29,13 @@ export function GraphView({ openPage }: { openPage: (p: string) => void }) {
         const docs = await db.documents.toArray();
         const linksData = await db.links.toArray();
 
-        const nodes = docs.map((d) => ({
+        const nodes: D3Node[] = docs.map((d) => ({
           id: d.id,
           title: d.title,
           badge: d.badgeClass || 'tag-badge-blue',
         }));
 
-        const links = linksData.map((l) => ({
+        const links: D3Link[] = linksData.map((l) => ({
           source: l.sourceId,
           target: l.targetId,
         }));
@@ -52,15 +62,15 @@ export function GraphView({ openPage }: { openPage: (p: string) => void }) {
             g.attr('transform', event.transform);
           });
 
-        svg.call(zoom as any);
+        svg.call(zoom);
 
         simulation = d3
-          .forceSimulation(nodes as d3.SimulationNodeDatum[])
+          .forceSimulation(nodes)
           .force(
             'link',
             d3
-              .forceLink(links)
-              .id((d: any) => d.id)
+              .forceLink<D3Node, D3Link>(links)
+              .id((d) => d.id)
               .distance(100)
           )
           .force('charge', d3.forceManyBody().strength(-300))
@@ -92,8 +102,12 @@ export function GraphView({ openPage }: { openPage: (p: string) => void }) {
           .join('circle')
           .attr('r', 8)
           .attr('fill', (d) => getColor(d.badge))
-          .call(drag(simulation) as any)
-          .on('dblclick', (event, d: any) => {
+          .call(
+            drag(simulation) as unknown as (
+              selection: d3.Selection<SVGCircleElement | d3.BaseType, D3Node, SVGGElement, unknown>
+            ) => void
+          )
+          .on('dblclick', (_event, d) => {
             setMainWikiId(d.id);
             openPage('editor');
           });
@@ -109,16 +123,21 @@ export function GraphView({ openPage }: { openPage: (p: string) => void }) {
           .attr('dy', 4)
           .attr('stroke', 'none');
 
+        const getNodeX = (source: string | D3Node): number =>
+          typeof source === 'string' ? 0 : (source.x ?? 0);
+        const getNodeY = (source: string | D3Node): number =>
+          typeof source === 'string' ? 0 : (source.y ?? 0);
+
         simulation.on('tick', () => {
           link
-            .attr('x1', (d: any) => d.source.x)
-            .attr('y1', (d: any) => d.source.y)
-            .attr('x2', (d: any) => d.target.x)
-            .attr('y2', (d: any) => d.target.y);
+            .attr('x1', (d) => getNodeX(d.source))
+            .attr('y1', (d) => getNodeY(d.source))
+            .attr('x2', (d) => getNodeX(d.target))
+            .attr('y2', (d) => getNodeY(d.target));
 
-          node.attr('cx', (d: any) => d.x).attr('cy', (d: any) => d.y);
+          node.attr('cx', (d) => d.x ?? 0).attr('cy', (d) => d.y ?? 0);
 
-          text.attr('x', (d: any) => d.x).attr('y', (d: any) => d.y);
+          text.attr('x', (d) => d.x ?? 0).attr('y', (d) => d.y ?? 0);
         });
 
         setLoading(false);
@@ -135,22 +154,26 @@ export function GraphView({ openPage }: { openPage: (p: string) => void }) {
     };
   }, [openPage]);
 
-  const drag = (simulation: any) => {
-    function dragstarted(event: any) {
+  const drag = (simulation: d3.Simulation<D3Node, D3Link>) => {
+    function dragstarted(event: d3.D3DragEvent<SVGCircleElement, unknown, D3Node>) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
       event.subject.fx = event.subject.x;
       event.subject.fy = event.subject.y;
     }
-    function dragged(event: any) {
+    function dragged(event: d3.D3DragEvent<SVGCircleElement, unknown, D3Node>) {
       event.subject.fx = event.x;
       event.subject.fy = event.y;
     }
-    function dragended(event: any) {
+    function dragended(event: d3.D3DragEvent<SVGCircleElement, unknown, D3Node>) {
       if (!event.active) simulation.alphaTarget(0);
       event.subject.fx = null;
       event.subject.fy = null;
     }
-    return d3.drag().on('start', dragstarted).on('drag', dragged).on('end', dragended);
+    return d3
+      .drag<SVGCircleElement, D3Node>()
+      .on('start', dragstarted)
+      .on('drag', dragged)
+      .on('end', dragended);
   };
 
   return (

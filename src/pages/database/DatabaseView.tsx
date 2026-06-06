@@ -68,10 +68,32 @@ export function DatabaseView({ openPage }: DatabaseViewProps) {
   const allDocs = useLiveQuery(() => db.documents.toArray(), []);
   const allProperties = useLiveQuery(() => db.properties.toArray(), []);
   const allDocProperties = useLiveQuery(() => db.docProperties.toArray(), []);
-  const allTags = useLiveQuery(() => db.tags.toArray(), []);
   const allLinks = useLiveQuery(() => db.links.toArray(), []);
   const allRels = useLiveQuery(() => db.relations.toArray(), []);
   const allObjectTypes = useLiveQuery(() => db.objectTypes.toArray(), []);
+
+  // 1.1 Optimized document queries using Dexie indexes (for typeId and tag filtering)
+  const docsByTypeId = useLiveQuery(async () => {
+    if (!selectedTypeId || selectedTypeId === 'inbox' || selectedTypeId === 'maintenance') {
+      return null;
+    }
+    return db.documents.where('typeId').equals(selectedTypeId).toArray();
+  }, [selectedTypeId]);
+
+  const docsByTag = useLiveQuery(async () => {
+    if (!selectedTag) return null;
+    // Use case-sensitive tag match via index (tags should be normalized)
+    const tagRecords = await db.tags.where('tag').equals(selectedTag).toArray();
+    const docIds = tagRecords.map((t) => t.docId);
+    if (docIds.length === 0) return [];
+    // Fetch documents by their IDs
+    const docs: DocumentEntity[] = [];
+    for (const id of docIds) {
+      const doc = await db.documents.get(id);
+      if (doc) docs.push(doc);
+    }
+    return docs;
+  }, [selectedTag]);
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [editingCellId, setEditingCellId] = useState<string | null>(null);
@@ -79,21 +101,19 @@ export function DatabaseView({ openPage }: DatabaseViewProps) {
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 2. Compute Filter Set
+  // 2. Compute Filter Set - use indexed queries when possible
   const resolvedFilteredData = useMemo(() => {
-    if (!allDocs) return [];
-
-    let filtered = [...allDocs];
-
-    // Case 1: Custom Inbox Filter (any uncategorized capture nodes)
+    // Case 1: Custom Inbox Filter (any uncategorized capture nodes) - requires full scan
     if (selectedTypeId === 'inbox') {
-      return filtered.filter(
+      if (!allDocs) return [];
+      return allDocs.filter(
         (doc) => !doc.typeId || doc.typeId === 'inbox' || doc.badge?.toLowerCase() === 'unprocessed'
       );
     }
 
-    // Case 2: Custom Maintenance Filter (Orphans mapping: no linked mentions, no relations)
+    // Case 2: Custom Maintenance Filter (Orphans mapping: no linked mentions, no relations) - requires full scan
     if (selectedTypeId === 'maintenance') {
+      if (!allDocs) return [];
       const connectedIds = new Set<string>();
       (allLinks || []).forEach((l) => {
         connectedIds.add(l.sourceId);
@@ -103,26 +123,22 @@ export function DatabaseView({ openPage }: DatabaseViewProps) {
         connectedIds.add(r.sourceId);
         connectedIds.add(r.targetId);
       });
-      return filtered.filter((doc) => !connectedIds.has(doc.id));
+      return allDocs.filter((doc) => !connectedIds.has(doc.id));
     }
 
-    // Case 3: Tag Filtering
+    // Case 3: Tag Filtering - use indexed query
     if (selectedTag) {
-      const tagDocIds = new Set(
-        (allTags || [])
-          .filter((t) => t.tag.toLowerCase() === selectedTag.toLowerCase())
-          .map((t) => t.docId)
-      );
-      return filtered.filter((doc) => tagDocIds.has(doc.id));
+      return docsByTag || [];
     }
 
-    // Case 4: Category/ObjectType Filter
+    // Case 4: Category/ObjectType Filter - use indexed query
     if (selectedTypeId) {
-      return filtered.filter((doc) => doc.typeId === selectedTypeId);
+      return docsByTypeId || [];
     }
 
-    return filtered;
-  }, [allDocs, selectedTypeId, selectedTag, allTags, allLinks, allRels]);
+    // Default: no filter - return all docs
+    return allDocs || [];
+  }, [allDocs, selectedTypeId, selectedTag, docsByTypeId, docsByTag, allLinks, allRels]);
 
   // Filter for documents with image attachments in the OPFS for the Gallery view mode
   const galleryFilteredData = useMemo(() => {
@@ -500,7 +516,12 @@ export function DatabaseView({ openPage }: DatabaseViewProps) {
                             onChange={async (e) => {
                               const targetId = e.target.value;
                               if (targetId) {
-                                await db.links.put({ sourceId: doc.id, targetId });
+                                await db.links.put({
+                                  sourceId: doc.id,
+                                  targetId,
+                                  start: 0,
+                                  end: 1,
+                                });
                                 toast.success(
                                   `Connected "${doc.title}" to database context graph!`
                                 );

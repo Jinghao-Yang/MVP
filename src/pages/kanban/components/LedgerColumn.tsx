@@ -23,7 +23,7 @@ interface LedgerColumnProps {
 }
 
 // 虚拟滚动阈值：卡片数量超过此值时启用虚拟滚动
-const VIRTUAL_SCROLL_THRESHOLD = 100;
+const VIRTUAL_SCROLL_THRESHOLD = 30;
 
 export function LedgerColumn({ id, title, index, cards, isTerminal }: LedgerColumnProps) {
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id });

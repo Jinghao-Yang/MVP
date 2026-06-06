@@ -171,12 +171,12 @@ const SEED_KANBAN_CARDS: KanbanCardEntity[] = [
 ];
 
 const SEED_LINKS: Omit<BidirectionalLinkEntity, 'id'>[] = [
-  { sourceId: 'heine-borel', targetId: 'compactness' },
-  { sourceId: 'tychonoff', targetId: 'axiom-of-choice' },
-  { sourceId: 'tychonoff', targetId: 'compactness' },
-  { sourceId: 'compactness', targetId: 'heine-borel' },
-  { sourceId: 'john-doe', targetId: 'topology-basics' },
-  { sourceId: 'topology-basics', targetId: 'john-doe' },
+  { sourceId: 'heine-borel', targetId: 'compactness', start: 0, end: 1 },
+  { sourceId: 'tychonoff', targetId: 'axiom-of-choice', start: 0, end: 1 },
+  { sourceId: 'tychonoff', targetId: 'compactness', start: 0, end: 1 },
+  { sourceId: 'compactness', targetId: 'heine-borel', start: 0, end: 1 },
+  { sourceId: 'john-doe', targetId: 'topology-basics', start: 0, end: 1 },
+  { sourceId: 'topology-basics', targetId: 'john-doe', start: 0, end: 1 },
 ];
 
 class AxiomDatabase extends Dexie {
@@ -195,6 +195,21 @@ class AxiomDatabase extends Dexie {
 
   constructor() {
     super('AxiomDatabase');
+
+    // Version 5: Add position tracking for links and tags
+    this.version(5).stores({
+      documents: 'id, typeId, title, updatedAt',
+      objectTypes: 'id, name',
+      properties: 'id, typeId, name, dataType',
+      docProperties: '[docId+propId], docId',
+      relations: '[sourceId+propId+targetId], targetId, sourceId',
+      links: '[sourceId+targetId], targetId, sourceId, start, end',
+      tags: '[docId+tag], docId, tag, start, end',
+      assets: 'id, filename, mimeType',
+      kanbanCards: 'id, columnId, order',
+      popoverStates: 'id',
+      config: 'id',
+    });
 
     // Version 4: Normalized Schema with Object Types, Properties, and Relations
     this.version(4).stores({
@@ -253,7 +268,7 @@ export async function seedDatabase() {
 
   const currentConfig = await db.config.get('app-config');
   const currentSchemaVersion = currentConfig?.schemaVersion ?? 0;
-  const TARGET_VERSION = 4;
+  const TARGET_VERSION = 5;
 
   if (currentSchemaVersion >= TARGET_VERSION) {
     await ensureSeedDocuments();
@@ -365,7 +380,11 @@ async function ensureSeedLinks() {
       .and((l) => l.targetId === link.targetId)
       .first();
     if (!existing) {
-      await db.links.add(link);
+      await db.links.add({
+        ...link,
+        start: 0,
+        end: 1,
+      });
     }
   }
 }

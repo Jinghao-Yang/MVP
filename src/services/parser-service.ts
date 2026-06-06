@@ -9,6 +9,18 @@ interface CachedDocPayload {
   timestamp: number;
 }
 
+interface LocatedWikiLink {
+  targetId: string;
+  start: number;
+  end: number;
+}
+
+interface LocatedTag {
+  tag: string;
+  start: number;
+  end: number;
+}
+
 class ParserService {
   private cache = new Map<string, CachedDocPayload>();
   private readonly MAX_CACHE_SIZE = 50;
@@ -25,17 +37,42 @@ class ParserService {
     wikiLinks: string[];
     tags: string[];
   } {
-    const lines = content.split('\n');
+    const result = this.parseMarkdownWithLocation(docId, content);
+    return {
+      nodes: result.nodes,
+      wikiLinks: result.locatedWikiLinks.map((link) => link.targetId),
+      tags: result.locatedTags.map((tag) => tag.tag),
+    };
+  }
+
+  /**
+   * 解析 Markdown 并返回带有位置信息的实体
+   */
+  public parseMarkdownWithLocation(
+    docId: string,
+    content: string
+  ): {
+    nodes: SemanticNode[];
+    locatedWikiLinks: LocatedWikiLink[];
+    locatedTags: LocatedTag[];
+  } {
     const nodes: SemanticNode[] = [];
-    const wikiLinks: string[] = [];
-    const tags: string[] = [];
+    const locatedWikiLinks: LocatedWikiLink[] = [];
+    const locatedTags: LocatedTag[] = [];
 
     let insideBlock = false;
     let currentType = '';
     let currentMeta: Record<string, unknown> = {};
     let currentLines: string[] = [];
 
+    // 逐行扫描并跟踪位置
+    let currentOffset = 0;
+    const lines = content.split('\n');
+
     for (const line of lines) {
+      const lineLength = line.length + 1; // +1 for the newline character
+      const lineStart = currentOffset;
+
       // 1. 扫描块头部: ::: type { "id": "thm-hb", "title": "Heine-Borel" }
       const startMatch = line.match(/^:::\s*([a-zA-Z0-9_-]+)\s*(?:\{(.+)\})?\s*$/);
       if (startMatch && !insideBlock) {
@@ -54,6 +91,7 @@ class ParserService {
         } else {
           currentMeta = {};
         }
+        currentOffset += lineLength;
         continue;
       }
 
@@ -78,27 +116,120 @@ class ParserService {
           properties: currentMeta,
           references,
         });
+        currentOffset += lineLength;
         continue;
       }
 
       if (insideBlock) {
         currentLines.push(line);
+        // 同时提取块内的链接和标签
+        this.extractFromLine(line, lineStart, locatedWikiLinks, locatedTags);
       } else {
-        // 3. 提取全局常规双链
-        const globalMatches = line.matchAll(/\[\[([a-zA-Z0-9_-]+)(?:\|[^\]]+)?\]\]/g);
-        for (const match of globalMatches) {
-          wikiLinks.push(match[1]);
-        }
+        // 3. 提取全局常规双链和标签
+        this.extractFromLine(line, lineStart, locatedWikiLinks, locatedTags);
+      }
 
-        // 4. 提取全局标签 #tag
-        const tagMatches = line.matchAll(/#([a-zA-Z0-9_-]+)/g);
-        for (const match of tagMatches) {
-          tags.push(match[1].toLowerCase());
-        }
+      currentOffset += lineLength;
+    }
+
+    return { nodes, locatedWikiLinks, locatedTags };
+  }
+
+  /**
+   * 从单行文本中提取链接和标签，并记录位置信息
+   */
+  private extractFromLine(
+    line: string,
+    lineStart: number,
+    locatedWikiLinks: LocatedWikiLink[],
+    locatedTags: LocatedTag[]
+  ) {
+    // 提取双链
+    const wikiLinkMatches = line.matchAll(/\[\[([a-zA-Z0-9_-]+)(?:\|[^\]]+)?\]\]/g);
+    for (const match of wikiLinkMatches) {
+      if (match.index !== undefined) {
+        locatedWikiLinks.push({
+          targetId: match[1],
+          start: lineStart + match.index,
+          end: lineStart + match.index + match[0].length,
+        });
       }
     }
 
-    return { nodes, wikiLinks, tags };
+    // 提取标签
+    const tagMatches = line.matchAll(/#([a-zA-Z0-9_-]+)/g);
+    for (const match of tagMatches) {
+      if (match.index !== undefined) {
+        locatedTags.push({
+          tag: match[1].toLowerCase(),
+          start: lineStart + match.index,
+          end: lineStart + match.index + match[0].length,
+        });
+      }
+    }
+  }
+
+  /**
+   * 增量解析：仅解析受变更影响的文档片段
+   */
+  public incrementalParse(
+    docId: string,
+    content: string,
+    from: number,
+    to: number,
+    inserted: string,
+    _removed: string
+  ): {
+    nodes: SemanticNode[];
+    locatedWikiLinks: LocatedWikiLink[];
+    locatedTags: LocatedTag[];
+    affectedRange: { start: number; end: number };
+  } {
+    // 扩大解析范围：前后各扩展 200 字符，避免遗漏跨边界的链接或标签
+    const CONTEXT_RADIUS = 200;
+    const parseStart = Math.max(0, from - CONTEXT_RADIUS);
+    const parseEnd = Math.min(content.length, to + inserted.length + CONTEXT_RADIUS);
+
+    // 先检查受影响范围内是否有语义块，如果有则回退到全量解析
+    const affectedFragment = content.slice(parseStart, parseEnd);
+    const contextBefore = content.slice(Math.max(0, parseStart - 500), parseStart);
+    const contextAfter = content.slice(parseEnd, Math.min(content.length, parseEnd + 500));
+
+    if (
+      affectedFragment.includes(':::') ||
+      contextBefore.includes(':::') ||
+      contextAfter.includes(':::')
+    ) {
+      // 回退到全量解析
+      const fullResult = this.parseMarkdownWithLocation(docId, content);
+      return {
+        ...fullResult,
+        affectedRange: { start: 0, end: content.length },
+      };
+    }
+
+    // 解析受影响片段，然后重新定位到全局位置
+    const fragmentResult = this.parseMarkdownWithLocation(docId, affectedFragment);
+
+    // 重新定位位置到全局
+    const repositionedLinks = fragmentResult.locatedWikiLinks.map((link) => ({
+      ...link,
+      start: link.start + parseStart,
+      end: link.end + parseStart,
+    }));
+
+    const repositionedTags = fragmentResult.locatedTags.map((tag) => ({
+      ...tag,
+      start: tag.start + parseStart,
+      end: tag.end + parseStart,
+    }));
+
+    return {
+      nodes: fragmentResult.nodes,
+      locatedWikiLinks: repositionedLinks,
+      locatedTags: repositionedTags,
+      affectedRange: { start: parseStart, end: parseEnd },
+    };
   }
 
   /**

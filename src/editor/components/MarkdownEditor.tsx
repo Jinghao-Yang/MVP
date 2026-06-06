@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import CodeMirror, { type ReactCodeMirrorProps } from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
-import { EditorView } from '@codemirror/view';
+import { EditorView, ViewUpdate } from '@codemirror/view';
 import { DocumentStats } from './DocumentStats';
 import { assetService } from '@/services/asset-service';
 import { toast } from 'sonner';
@@ -19,6 +19,7 @@ interface MarkdownEditorProps {
   showStats?: boolean;
   onExport?: () => void;
   onSplit?: () => void;
+  onUpdate?: (update: ViewUpdate) => void;
 }
 
 function arePropsEqual(prevProps: MarkdownEditorProps, nextProps: MarkdownEditorProps): boolean {
@@ -43,6 +44,7 @@ export const MarkdownEditor = memo(function MarkdownEditor({
   showStats = true,
   onExport,
   onSplit,
+  onUpdate,
 }: MarkdownEditorProps) {
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [resolvedAssets, setResolvedAssets] = useState<Record<string, string>>({});
@@ -215,6 +217,7 @@ export const MarkdownEditor = memo(function MarkdownEditor({
           }}
           className={className}
           onBlur={onBlur}
+          onUpdate={onUpdate}
           editable={!isReadOnly}
         />
         {isReadOnly && (

@@ -80,6 +80,8 @@ export interface RelationEntity {
 export interface TagEntity {
   docId: string;
   tag: string;
+  start: number;
+  end: number;
 }
 
 /**
@@ -123,4 +125,6 @@ export interface BidirectionalLinkEntity {
   sourceId: string;
   /** Target document ID */
   targetId: string;
+  start: number;
+  end: number;
 }

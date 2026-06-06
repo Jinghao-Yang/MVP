@@ -114,6 +114,8 @@ function parseMarkdownLinks(sourceId: string, text: string): BidirectionalLinkEn
     list.push({
       sourceId,
       targetId: link.targetId,
+      start: 0,
+      end: 1,
     });
   }
 

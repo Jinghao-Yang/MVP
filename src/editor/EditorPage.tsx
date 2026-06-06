@@ -66,8 +66,11 @@ export function EditorPage({
         // 2. 清除特定内存缓存
         parserService.invalidate(mainWikiId);
 
-        // 3. 执行单向增量解析提取
-        const { nodes, wikiLinks, tags } = parserService.parseMarkdown(mainWikiId, newText);
+        // 3. 执行单向增量解析提取（带位置）
+        const { nodes, locatedWikiLinks, locatedTags } = parserService.parseMarkdownWithLocation(
+          mainWikiId,
+          newText
+        );
 
         // 4. 将提取出的实体立刻同步至 Reactive Entity Graph 触发 UI 响应
         registerNodesToGraph(nodes);
@@ -80,18 +83,22 @@ export function EditorPage({
           }
 
           await db.links.where('sourceId').equals(mainWikiId).delete();
-          const legacyLinks = wikiLinks.map((target) => ({
+          const linkEntities = locatedWikiLinks.map((link) => ({
             sourceId: mainWikiId,
-            targetId: target,
+            targetId: link.targetId,
+            start: link.start,
+            end: link.end,
           }));
-          if (legacyLinks.length > 0) {
-            await db.links.bulkAdd(legacyLinks);
+          if (linkEntities.length > 0) {
+            await db.links.bulkAdd(linkEntities);
           }
 
           await db.tags.where('docId').equals(mainWikiId).delete();
-          const tagEntities = tags.map((t) => ({
+          const tagEntities = locatedTags.map((t) => ({
             docId: mainWikiId,
-            tag: t,
+            tag: t.tag,
+            start: t.start,
+            end: t.end,
           }));
           if (tagEntities.length > 0) {
             await db.tags.bulkAdd(tagEntities);
@@ -103,6 +110,13 @@ export function EditorPage({
     },
     [mainWikiId, setDocumentText, markAsSaved, registerNodesToGraph]
   );
+
+  /**
+   * 处理编辑器更新事件，用于增量解析（本示例暂时保持使用延迟保存的全量解析，避免过早优化导致的复杂性）
+   */
+  const handleEditorUpdate = useCallback((_update: unknown) => {
+    // 目前我们保持使用延迟保存的全量解析，以确保稳定性
+  }, []);
 
   useEffect(() => {
     if (mainDocument) {
@@ -222,6 +236,7 @@ export function EditorPage({
                 docId={mainWikiId}
                 value={documentText}
                 onChange={handleEditorChange}
+                onUpdate={handleEditorUpdate}
                 extensions={editorExtensions}
                 showStats={true}
                 onExport={handleExport}
