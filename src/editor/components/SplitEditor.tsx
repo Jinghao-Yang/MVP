@@ -1,7 +1,7 @@
 /* ==================================================
    FILE: src/editor/components/SplitEditor.tsx
    ================================================== */
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Check, AlertCircle } from 'lucide-react';
 import { MarkdownEditor } from './MarkdownEditor';
 import { documentService } from '@/services/document-service';
@@ -21,7 +21,6 @@ export function SplitEditor({ wikiId, document }: SplitEditorProps) {
   const [localTitle, setLocalTitle] = useState(document.title);
   const originalContentRef = useRef<string>(document.content);
 
-  // 同步文档数据到本地状态
   useEffect(() => {
     setLocalTitle(document.title);
     if (localContent === originalContentRef.current) {
@@ -30,16 +29,13 @@ export function SplitEditor({ wikiId, document }: SplitEditorProps) {
     }
   }, [document]);
 
-  // 标记是否有未保存的更改
   const hasUnsavedChanges = localContent !== originalContentRef.current;
 
-  // 更新内容（仅更新本地状态）
-  const handleContentChange = useCallback((content: string) => {
+  const handleContentChange = (content: string) => {
     setLocalContent(content);
-  }, []);
+  };
 
-  // 保存内容到数据库
-  const saveContent = useCallback(async () => {
+  const saveContent = async () => {
     if (!wikiId || !hasUnsavedChanges) return;
 
     try {
@@ -51,9 +47,8 @@ export function SplitEditor({ wikiId, document }: SplitEditorProps) {
       showErrorToast('Failed to save document');
       setSaveStatus('error');
     }
-  }, [wikiId, localContent, hasUnsavedChanges]);
+  };
 
-  // 组件卸载前强制保存
   useEffect(() => {
     return () => {
       if (hasUnsavedChanges && wikiId) {
@@ -64,10 +59,9 @@ export function SplitEditor({ wikiId, document }: SplitEditorProps) {
     };
   }, [wikiId, localContent, hasUnsavedChanges]);
 
-  // 失焦时保存
-  const handleBlur = useCallback(() => {
+  const handleBlur = () => {
     saveContent();
-  }, [saveContent]);
+  };
 
   return (
     <>
@@ -87,7 +81,6 @@ export function SplitEditor({ wikiId, document }: SplitEditorProps) {
         />
       </div>
 
-      {/* 保存状态指示器 */}
       <div className="flex items-center gap-1">
         {saveStatus === 'saving' && (
           <span className="font-mono text-[8px] text-blue-500 uppercase animate-pulse">

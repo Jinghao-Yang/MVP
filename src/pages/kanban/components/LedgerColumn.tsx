@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { DraggableItem } from './DraggableItem';
@@ -22,31 +22,25 @@ interface LedgerColumnProps {
   isTerminal?: boolean;
 }
 
-// 虚拟滚动阈值：卡片数量超过此值时启用虚拟滚动
 const VIRTUAL_SCROLL_THRESHOLD = 30;
 
 export function LedgerColumn({ id, title, index, cards, isTerminal }: LedgerColumnProps) {
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id });
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 当卡片数量超过阈值时启用虚拟滚动
   const shouldVirtualize = cards.length > VIRTUAL_SCROLL_THRESHOLD;
 
   const rowVirtualizer = useVirtualizer({
     count: cards.length,
     getScrollElement: () => containerRef.current,
-    estimateSize: () => 120, // 每个卡片大约 120px 高
+    estimateSize: () => 120,
     overscan: 5,
   });
 
-  // 合并两个 ref
-  const setRefs = useCallback(
-    (node: HTMLDivElement | null) => {
-      setDroppableRef(node);
-      (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-    },
-    [setDroppableRef]
-  );
+  const setRefs = (node: HTMLDivElement | null) => {
+    setDroppableRef(node);
+    (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+  };
 
   return (
     <div
@@ -69,7 +63,6 @@ export function LedgerColumn({ id, title, index, cards, isTerminal }: LedgerColu
 
       <div ref={setRefs} className="flex-1 overflow-y-auto custom-scrollbar">
         {shouldVirtualize ? (
-          // 虚拟滚动模式
           <div
             style={{
               height: `${rowVirtualizer.getTotalSize()}px`,
@@ -97,7 +90,6 @@ export function LedgerColumn({ id, title, index, cards, isTerminal }: LedgerColu
             })}
           </div>
         ) : (
-          // 普通渲染模式
           cards.map((card) => <DraggableItem key={card.id} card={card} isTerminal={!!isTerminal} />)
         )}
         {cards.length === 0 && (

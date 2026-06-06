@@ -4,7 +4,6 @@
 import { useActionState } from 'react';
 // @ts-ignore - useFormStatus is available in React 19 runtime
 import { useFormStatus } from 'react';
-import { memo } from 'react';
 import { db } from '@/db/dexie';
 import { toast } from 'sonner';
 
@@ -69,7 +68,7 @@ interface NewTaskModalProps {
   onTaskCreated: () => void;
 }
 
-function NewTaskModalComponent({ isOpen, defaultDate, onClose, onTaskCreated }: NewTaskModalProps) {
+export function NewTaskModal({ isOpen, defaultDate, onClose, onTaskCreated }: NewTaskModalProps) {
   const [state, formAction] = useActionState(createTaskAction, { success: false, error: null });
 
   if (!isOpen) return null;
@@ -155,5 +154,3 @@ function NewTaskModalComponent({ isOpen, defaultDate, onClose, onTaskCreated }: 
     </div>
   );
 }
-
-export const NewTaskModal = memo(NewTaskModalComponent);

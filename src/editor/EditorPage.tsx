@@ -79,8 +79,7 @@ export function EditorPage({
     enqueueSave(mainWikiId, newText);
   };
 
-  const handleEditorUpdate = (_update: unknown) => {
-  };
+  const handleEditorUpdate = (_update: unknown) => {};
 
   useEffect(() => {
     if (mainDocument) {
@@ -112,7 +111,9 @@ export function EditorPage({
     setShowSplitter(true);
   };
 
-  const handleSplitConfirm = async (sections: Array<{ id: string; title: string; content: string }>) => {
+  const handleSplitConfirm = async (
+    sections: Array<{ id: string; title: string; content: string }>
+  ) => {
     for (const section of sections) {
       const docId = `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       await db.documents.add({

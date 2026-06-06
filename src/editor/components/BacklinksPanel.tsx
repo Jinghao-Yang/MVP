@@ -1,7 +1,7 @@
 /* ==================================================
    FILE: src/editor/components/BacklinksPanel.tsx
    ================================================== */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Link2 } from 'lucide-react';
 import { documentService } from '@/services/document-service';
 import { showErrorToast } from '@/utils/error-handler';
@@ -15,7 +15,6 @@ interface BacklinksPanelProps {
 export function BacklinksPanel({ wikiId, onLinkClick }: BacklinksPanelProps) {
   const [backlinks, setBacklinks] = useState<string[]>([]);
 
-  // 加载反向链接
   useEffect(() => {
     if (wikiId) {
       documentService
@@ -27,14 +26,6 @@ export function BacklinksPanel({ wikiId, onLinkClick }: BacklinksPanelProps) {
     }
   }, [wikiId]);
 
-  // 处理链接点击
-  const handleLinkClick = useCallback(
-    (linkId: string) => {
-      onLinkClick(linkId);
-    },
-    [onLinkClick]
-  );
-
   return (
     <div className="border-t border-black/5 pt-6 space-y-3">
       <h5 className="font-mono text-[10px] uppercase tracking-widest font-bold text-neutral-400 flex items-center gap-1.5">
@@ -45,7 +36,7 @@ export function BacklinksPanel({ wikiId, onLinkClick }: BacklinksPanelProps) {
           {backlinks.map((linkId) => (
             <button
               key={linkId}
-              onClick={() => handleLinkClick(linkId)}
+              onClick={() => onLinkClick(linkId)}
               className="px-2.5 py-1.5 bg-neutral-100 hover:bg-neutral-200/80 border border-neutral-200/50 rounded-lg text-xs font-sys font-medium text-neutral-700 cursor-pointer transition-colors"
             >
               <SafeText content={linkId === 'main-editor-doc' ? 'Topology Math (Main)' : linkId} />
