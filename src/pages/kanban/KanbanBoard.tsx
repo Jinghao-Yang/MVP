@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { DndContext, DragEndEvent } from '@dnd-kit/core';
-import { Database, Sparkles, AlertCircle, X, Layers, Book } from 'lucide-react';
+import { Database, Sparkles, Layers, Book } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/dexie';
 import { LedgerColumn } from './components/LedgerColumn';
-import { useKanbanStore } from '@/stores/kanban-store';
 import { toast } from 'sonner';
 
 type ViewMode = 'zettelkasten' | 'books';
@@ -16,9 +15,6 @@ export function KanbanBoard() {
   // 1. Reactive live-query to fetch documents and their properties straight from IndexedDB
   const documents = useLiveQuery(() => db.documents.toArray(), []);
   const docProps = useLiveQuery(() => db.docProperties.toArray(), []);
-
-  const error = useKanbanStore((state) => state.error);
-  const clearError = useKanbanStore((state) => state.clearError);
 
   const isLoading = documents === undefined || docProps === undefined;
 
@@ -197,16 +193,6 @@ export function KanbanBoard() {
           </div>
         </div>
       </div>
-
-      {error && (
-        <div className="error-toast mb-4" role="alert">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <span className="font-sys text-sm flex-1">{error}</span>
-          <button onClick={clearError} className="p-1 hover:bg-red-100 rounded transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
 
       <div className="flex-1 border border-neutral-200 shadow-sm bg-white overflow-hidden min-h-[500px] flex flex-col rounded-xl">
         {isLoading ? (

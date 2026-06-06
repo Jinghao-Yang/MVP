@@ -1,25 +1,11 @@
-/* ================================================
-   FILE: src/pages/ProjectPage.tsx
-   ================================================ */
-import { useEffect } from 'react';
-import { useKanbanStore } from '@/stores/kanban-store';
-import { useUiStore } from '@/stores/ui-store';
+import { useState } from 'react';
 import { KanbanBoard } from './kanban/KanbanBoard';
 import { ChangelogView } from './changelog/ChangelogView';
 import { TimelineView } from './timeline/TimelineView';
 import { DatabaseView } from './database/DatabaseView';
-import { GraphView } from './graph/GraphView';
-import { SettingsView } from './settings/SettingsView';
-import { ScheduleView } from './schedule/ScheduleView';
 
 export function ProjectPage({ openPage }: { openPage: (p: string) => void }) {
-  const activeTab = useUiStore((state) => state.activeProjectTab);
-  const setActiveTab = useUiStore((state) => state.setActiveProjectTab);
-  const loadKanbanCards = useKanbanStore((state) => state.loadKanbanCards);
-
-  useEffect(() => {
-    loadKanbanCards();
-  }, [loadKanbanCards]);
+  const [activeTab, setActiveTab] = useState('kanban');
 
   const renderContent = () => {
     switch (activeTab) {
@@ -31,26 +17,10 @@ export function ProjectPage({ openPage }: { openPage: (p: string) => void }) {
         return <TimelineView />;
       case 'database':
         return <DatabaseView openPage={openPage} />; // 绑定
-      case 'graph':
-        return <GraphView openPage={openPage} />;
-      case 'schedule':
-        return <ScheduleView />;
-      case 'settings':
-        return <SettingsView />;
       default:
         return <KanbanBoard />;
     }
   };
-
-  const tabs = [
-    { id: 'kanban', label: 'Ledger' },
-    { id: 'database', label: 'Database' },
-    { id: 'graph', label: 'Graph' },
-    { id: 'changelog', label: 'Changelog' },
-    { id: 'timeline', label: 'Timeline' },
-    { id: 'schedule', label: 'Planner' },
-    { id: 'settings', label: 'Settings' },
-  ];
 
   return (
     <div className="page-panel flex-1 flex flex-col h-full overflow-hidden">
@@ -62,14 +32,14 @@ export function ProjectPage({ openPage }: { openPage: (p: string) => void }) {
             <span className="text-[var(--text-main)] font-semibold">Topology Math</span>
           </div>
         </div>
-        <div className="flex items-center gap-1 p-1 bg-white/30 backdrop-blur-md border border-black/5 flex-wrap">
-          {tabs.map((tab) => (
+        <div className="flex items-center gap-1 p-1 bg-white/30 backdrop-blur-md border border-black/5">
+          {['changelog', 'timeline', 'kanban', 'database'].map((tab) => (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`spring-click px-4 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-none border-none cursor-pointer ${activeTab === tab.id ? 'text-black bg-white/60 shadow-sm' : 'text-[var(--text-muted)] hover:text-black hover-ui'}`}
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`spring-click px-4 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-none border-none cursor-pointer ${activeTab === tab ? 'text-black bg-white/60 shadow-sm' : 'text-[var(--text-muted)] hover:text-black hover-ui'}`}
             >
-              {tab.label}
+              {tab === 'kanban' ? 'Ledger' : tab === 'database' ? 'Database' : tab}
             </button>
           ))}
         </div>
