@@ -2,10 +2,12 @@
    FILE: src/pages/schedule/ScheduleView.tsx
    ================================================ */
 import { useState, useMemo, useOptimistic, startTransition } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/dexie';
-import { useUiStore } from '@/stores/ui-store';
+import { useUiStore } from '@/stores';
 import { toast } from 'sonner';
+import { useTasks, type ObjectTask } from '@/hooks/useTasks';
+import type { InlineTaskEntity } from '@/types';
+import { TASK_STATUS, VIEW_MODES } from '@/utils/constants';
 
 // Import refactored components
 import { ScheduleHeader } from './ScheduleHeader';
@@ -15,26 +17,6 @@ import { KanbanView } from './KanbanView';
 import { QuickAddForm } from './QuickAddForm';
 import { ActiveLedgerList } from './ActiveLedgerList';
 import { NewTaskModal } from './NewTaskModal';
-
-interface ObjectTask {
-  id: string;
-  title: string;
-  typeId: string;
-  status: string;
-  duedate: string | null;
-  priority: string;
-  content: string;
-}
-
-interface InlineTask {
-  id: string;
-  docId: string;
-  docTitle: string;
-  text: string;
-  completed: boolean;
-  date: string | null;
-  priority: string;
-}
 
 interface CalendarEvent {
   id: string;
@@ -52,15 +34,12 @@ export function ScheduleView() {
   const setActivePage = useUiStore((state) => state.setActivePage);
 
   // ================================================
-  // 1. Live Queries & Data Processing
+  // 1. Live Queries & Data Processing via encapsulated useTasks Hook
   // ================================================
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-  const documents = useLiveQuery(() => db.documents.toArray(), [refreshTrigger]);
-  const docProperties = useLiveQuery(() => db.docProperties.toArray(), [refreshTrigger]);
+  const { objectTasks, inlineTasks } = useTasks();
 
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'calendar' | 'kanban'>('calendar');
+  const [viewMode, setViewMode] = useState<'calendar' | 'kanban'>(VIEW_MODES.CALENDAR);
 
   const [shiftStartDate, setShiftStartDate] = useState(
     new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -77,95 +56,10 @@ export function ScheduleView() {
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [newTaskDate, setNewTaskDate] = useState('');
 
-  // ================================================
-  // 2. Data Mappers & Extractors
-  // ================================================
-  const objectTasks = useMemo(() => {
-    if (!documents || !docProperties) return [];
-
-    const propsMap: Record<string, Record<string, string>> = {};
-    docProperties.forEach((p) => {
-      if (!propsMap[p.docId]) propsMap[p.docId] = {};
-      propsMap[p.docId][p.propId] = p.value;
-    });
-
-    const list: ObjectTask[] = [];
-
-    documents.forEach((doc) => {
-      if (doc.typeId === 'task' || doc.typeId === 'project') {
-        const p = propsMap[doc.id] || {};
-        const isProject = doc.typeId === 'project';
-
-        const status = isProject
-          ? p['prop-proj-status'] || 'Active'
-          : p['prop-task-status'] || 'Todo';
-
-        const duedate = isProject ? p['prop-proj-duedate'] || null : p['prop-task-duedate'] || null;
-        const priority = isProject ? 'High' : p['prop-task-priority'] || 'Medium';
-
-        list.push({
-          id: doc.id,
-          title: doc.title,
-          typeId: doc.typeId,
-          status,
-          duedate,
-          priority,
-          content: doc.content,
-        });
-      }
-    });
-
-    return list;
-  }, [documents, docProperties]);
-
-  const inlineTasks = useMemo(() => {
-    if (!documents) return [];
-    const list: InlineTask[] = [];
-
-    documents.forEach((doc) => {
-      if (doc.typeId === 'task') return;
-
-      const lines = doc.content.split('\n');
-      lines.forEach((line, index) => {
-        const match = line.match(/^\s*[-*]\s+\[([ xX])\]\s+(.+)$/);
-        if (match) {
-          const completed = match[1].toLowerCase() === 'x';
-          let text = match[2].trim();
-
-          let date: string | null = null;
-          const dateMatch = text.match(/@(\d{4}-\d{2}-\d{2})/);
-          if (dateMatch) {
-            date = dateMatch[1];
-            text = text.replace(/@\d{4}-\d{2}-\d{2}/, '').trim();
-          }
-
-          let priority = 'Medium';
-          const pMatch = text.match(/!(High|Medium|Low)/gi);
-          if (pMatch) {
-            priority = pMatch[0].substring(1);
-            priority = priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase();
-            text = text.replace(/!(High|Medium|Low)/gi, '').trim();
-          }
-
-          list.push({
-            id: `${doc.id}-inline-${index}`,
-            docId: doc.id,
-            docTitle: doc.title,
-            text,
-            completed,
-            date,
-            priority,
-          });
-        }
-      });
-    });
-
-    return list;
-  }, [documents]);
-
+  // Optimistic updates for checklist tasks using the new clean pre-calculated DB states
   const [optimisticTasks, addOptimisticTask] = useOptimistic(
     inlineTasks,
-    (state, updatedTask: InlineTask) =>
+    (state, updatedTask: InlineTaskEntity) =>
       state.map((t) => (t.id === updatedTask.id ? updatedTask : t))
   );
 
@@ -182,7 +76,7 @@ export function ScheduleView() {
           type: ot.typeId === 'project' ? 'relation-project' : 'relation-task',
           status: ot.status,
           priority: ot.priority,
-          propName: ot.typeId === 'project' ? 'Due Date' : 'Due Date',
+          propName: 'Due Date',
         });
       }
     });
@@ -190,12 +84,12 @@ export function ScheduleView() {
     optimisticTasks.forEach((it) => {
       if (it.date) {
         list.push({
-          id: it.id,
+          id: it.id!,
           docId: it.docId,
           title: `[Inline] ${it.text}`,
           date: it.date,
           type: 'inline-task',
-          status: it.completed ? 'Completed' : 'Todo',
+          status: it.completed ? TASK_STATUS.COMPLETED : TASK_STATUS.TODO,
           priority: it.priority,
         });
       }
@@ -207,13 +101,19 @@ export function ScheduleView() {
   // ================================================
   // 3. Mutation Handlers
   // ================================================
-  const toggleInlineTask = async (task: InlineTask) => {
-    // 1. 立即应用乐观更新
+  const toggleInlineTask = async (task: InlineTaskEntity) => {
+    // 1. Apply optimistic update instantly
     startTransition(() => {
       addOptimisticTask({ ...task, completed: !task.completed });
     });
 
     try {
+      // Direct fast local transition inside IndexedDB pre-saved checklist items table
+      if (task.id) {
+        await db.inlineTasks.update(task.id, { completed: !task.completed });
+      }
+
+      // Also serialize changes back into the document body to maintain integrity
       const doc = await db.documents.get(task.docId);
       if (!doc) {
         toast.error('Document not found.');
@@ -243,17 +143,17 @@ export function ScheduleView() {
         updatedAt: Date.now(),
       });
 
-      setRefreshTrigger((prev) => prev + 1);
       toast.success('Updated checklist task state.');
-    } catch {
+    } catch (err) {
+      console.error(err);
       toast.error('Failed to change checklist item.');
-      // 乐观更新会自动回滚，因为原始状态会重新渲染
     }
   };
 
   const toggleObjectTask = async (task: ObjectTask) => {
     try {
-      const nextStatus = task.status === 'Completed' ? 'Todo' : 'Completed';
+      const nextStatus =
+        task.status === TASK_STATUS.COMPLETED ? TASK_STATUS.TODO : TASK_STATUS.COMPLETED;
       const propId = task.typeId === 'project' ? 'prop-proj-status' : 'prop-task-status';
 
       await db.docProperties.put({
@@ -262,7 +162,6 @@ export function ScheduleView() {
         value: nextStatus,
       });
 
-      setRefreshTrigger((p) => p + 1);
       toast.success(`Set status to ${nextStatus}.`);
     } catch {
       toast.error('Failed to modify object status.');
@@ -273,7 +172,7 @@ export function ScheduleView() {
     try {
       await db.documents.delete(docId);
       await db.docProperties.where('docId').equals(docId).delete();
-      setRefreshTrigger((prev) => prev + 1);
+      await db.inlineTasks.where('docId').equals(docId).delete();
       toast.error('Pruned Task document.');
     } catch {
       toast.error('Failed to delete.');
@@ -321,7 +220,6 @@ export function ScheduleView() {
       ]);
 
       setQuickAddText('');
-      setRefreshTrigger((prev) => prev + 1);
       toast.success('Scheduled new task.');
     } catch {
       toast.error('Failed to quick-schedule card.');
@@ -357,7 +255,6 @@ export function ScheduleView() {
         }
       }
 
-      setRefreshTrigger((prev) => prev + 1);
       toast.success(
         `Deadline shift complete: updated ${shiftCount} records by ${shiftDaysOffset} day(s)!`
       );
@@ -446,6 +343,17 @@ ${
     payload: { type: string; docId: string; taskText?: string }
   ) => {
     e.dataTransfer.setData('text/plain', JSON.stringify(payload));
+
+    // Temporarily disable overflow clipping synchronously for the browser ghost image capture
+    const container = document.getElementById('ledger-scroll-container');
+    if (container) {
+      container.style.overflow = 'visible';
+      container.style.maxHeight = 'none';
+      setTimeout(() => {
+        container.style.overflow = '';
+        container.style.maxHeight = '';
+      }, 0);
+    }
   };
 
   const handleDropOnDate = async (e: React.DragEvent, targetDate: string) => {
@@ -493,15 +401,13 @@ ${
         });
         toast.info(`Updated Inline deadline to ${targetDate}`);
       }
-
-      setRefreshTrigger((prev) => prev + 1);
     } catch {
       toast.error('Drag scheduling failed.');
     }
   };
 
   const groupedTasksMap = useMemo(() => {
-    const map: Record<string, { objects: ObjectTask[]; inlines: InlineTask[] }> = {
+    const map: Record<string, { objects: ObjectTask[]; inlines: InlineTaskEntity[] }> = {
       Overdue: { objects: [], inlines: [] },
       Today: { objects: [], inlines: [] },
       Upcoming: { objects: [], inlines: [] },
@@ -635,7 +541,7 @@ ${
         isOpen={isNewTaskModalOpen}
         defaultDate={newTaskDate}
         onClose={() => setIsNewTaskModalOpen(false)}
-        onTaskCreated={() => setRefreshTrigger((prev) => prev + 1)}
+        onTaskCreated={() => {}}
       />
     </div>
   );

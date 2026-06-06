@@ -2,7 +2,6 @@
    FILE: src/services/parser-service.ts
    ================================================ */
 import { db } from '@/db/dexie';
-import type { SemanticNode, PropertyValue } from '@/types';
 
 interface CachedDocPayload {
   blocks: Map<string, string>; // Map<nodeId, contentText>
@@ -33,13 +32,11 @@ class ParserService {
     docId: string,
     content: string
   ): {
-    nodes: SemanticNode[];
     wikiLinks: string[];
     tags: string[];
   } {
     const result = this.parseMarkdownWithLocation(docId, content);
     return {
-      nodes: result.nodes,
       wikiLinks: result.locatedWikiLinks.map((link) => link.targetId),
       tags: result.locatedTags.map((tag) => tag.tag),
     };
@@ -52,18 +49,13 @@ class ParserService {
     docId: string,
     content: string
   ): {
-    nodes: SemanticNode[];
     locatedWikiLinks: LocatedWikiLink[];
     locatedTags: LocatedTag[];
   } {
-    const nodes: SemanticNode[] = [];
     const locatedWikiLinks: LocatedWikiLink[] = [];
     const locatedTags: LocatedTag[] = [];
 
     let insideBlock = false;
-    let currentType = '';
-    let currentMeta: Record<string, PropertyValue> = {};
-    let currentLines: string[] = [];
 
     // 逐行扫描并跟踪位置
     let currentOffset = 0;
@@ -74,23 +66,9 @@ class ParserService {
       const lineStart = currentOffset;
 
       // 1. 扫描块头部: ::: type { "id": "thm-hb", "title": "Heine-Borel" }
-      const startMatch = line.match(/^:::\s*([a-zA-Z0-9_-]+)\s*(?:\{(.+)\})?\s*$/);
+      const startMatch = line.match(/^:::\s*[a-zA-Z0-9_-]+\s*(?:\{.+\})?\s*$/);
       if (startMatch && !insideBlock) {
         insideBlock = true;
-        currentType = startMatch[1];
-        currentLines = [];
-
-        const jsonStrRaw = startMatch[2];
-        if (jsonStrRaw) {
-          try {
-            // 支持合法的严格 JSON 解析
-            currentMeta = JSON.parse(`{${jsonStrRaw}}`);
-          } catch {
-            currentMeta = {};
-          }
-        } else {
-          currentMeta = {};
-        }
         currentOffset += lineLength;
         continue;
       }
@@ -98,41 +76,17 @@ class ParserService {
       // 2. 扫描块尾部: :::
       if (line.trim() === ':::' && insideBlock) {
         insideBlock = false;
-        const blockId = (currentMeta.id as string) || `node-${docId}-${nodes.length}`;
-        const blockContent = currentLines.join('\n');
-
-        // 在当前块内提取 references [[nodeId]]
-        const references: string[] = [];
-        const matches = blockContent.matchAll(/\[\[([a-zA-Z0-9_-]+)(?:\|[^\]]+)?\]\]/g);
-        for (const match of matches) {
-          references.push(match[1]);
-        }
-
-        nodes.push({
-          id: blockId,
-          docId,
-          type: currentType,
-          title: (currentMeta.title as string) || 'Untitled Block',
-          properties: currentMeta,
-          references,
-        });
         currentOffset += lineLength;
         continue;
       }
 
-      if (insideBlock) {
-        currentLines.push(line);
-        // 同时提取块内的链接和标签
-        this.extractFromLine(line, lineStart, locatedWikiLinks, locatedTags);
-      } else {
-        // 3. 提取全局常规双链和标签
-        this.extractFromLine(line, lineStart, locatedWikiLinks, locatedTags);
-      }
+      // 提取全局/内部双链和标签
+      this.extractFromLine(line, lineStart, locatedWikiLinks, locatedTags);
 
       currentOffset += lineLength;
     }
 
-    return { nodes, locatedWikiLinks, locatedTags };
+    return { locatedWikiLinks, locatedTags };
   }
 
   /**
@@ -180,7 +134,6 @@ class ParserService {
     inserted: string,
     _removed: string
   ): {
-    nodes: SemanticNode[];
     locatedWikiLinks: LocatedWikiLink[];
     locatedTags: LocatedTag[];
     affectedRange: { start: number; end: number };
@@ -225,7 +178,6 @@ class ParserService {
     }));
 
     return {
-      nodes: fragmentResult.nodes,
       locatedWikiLinks: repositionedLinks,
       locatedTags: repositionedTags,
       affectedRange: { start: parseStart, end: parseEnd },

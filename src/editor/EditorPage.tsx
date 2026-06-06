@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { useUiStore } from '@/stores/ui-store';
-import { useEditorStore, type EditorState } from '@/stores/editor-store';
-import { usePopupStore } from '@/stores/popup-store';
-import { useEntityGraphStore } from '@/stores/entity-graph-store';
+import { useUiStore, useEditorStore, type EditorState, usePopupStore } from '@/stores';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/dexie';
 import { documentParseService } from '@/services/document-parse-service';
@@ -17,9 +14,10 @@ import { MinimizedPopups } from './components/MinimizedPopups';
 import { WikiHoverPreview } from './components/WikiHoverPreview';
 import { DocumentSplitter } from './components/DocumentSplitter';
 import { PropertyForm } from './components/PropertyForm';
-import { MainBacklinksPanel } from './components/MainBacklinksPanel';
+import { BacklinksPanel } from './components/BacklinksPanel';
 import { wysiwygLinkExtension } from './extensions/wysiwyg-link';
 import { Maximize2, Minimize2, BookOpen, MessageSquare } from 'lucide-react';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import type { DocumentEntity } from '@/types';
 import { exportService } from '@/services/export-service';
 import { DOCUMENT } from '@/utils/constants';
@@ -36,7 +34,6 @@ export function EditorPage({
   const setDocumentText = useEditorStore((state: EditorState) => state.setDocumentText);
   const markAsSaved = useEditorStore((state: EditorState) => state.markAsSaved);
   const setHoveredLink = usePopupStore((state) => state.setHoveredLink);
-  const registerNodesToGraph = useEntityGraphStore((state) => state.registerNodes);
 
   const mainWikiId = useUiStore((state) => state.mainWikiId) || 'main-editor-doc';
   const currentWikiId = useUiStore((state) => state.currentWikiId);
@@ -61,12 +58,11 @@ export function EditorPage({
 
   useEffect(() => {
     const unregister = documentParseService.addListener((docId, content) => {
-      const { nodes } = parserService.parseMarkdown(docId, content);
-      registerNodesToGraph(nodes);
+      parserService.parseMarkdown(docId, content);
     });
 
     return unregister;
-  }, [registerNodesToGraph]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -138,7 +134,7 @@ export function EditorPage({
       <div className="flex-1 flex flex-col h-full bg-transparent overflow-hidden">
         <header className="h-14 px-8 border-b border-black/5 flex items-center justify-between shrink-0 bg-white/40 backdrop-blur-xl">
           <div className="flex items-center gap-2">
-            <span className="tag-badge bg-bh-red/10 text-bh-red">Active Workspace</span>
+            <Breadcrumbs />
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -206,7 +202,7 @@ export function EditorPage({
               />
             </div>
 
-            <MainBacklinksPanel docId={mainWikiId} />
+            <BacklinksPanel wikiId={mainWikiId} variant="detailed" />
           </div>
         </div>
       </div>

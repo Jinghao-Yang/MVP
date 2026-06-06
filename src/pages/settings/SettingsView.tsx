@@ -1,4 +1,4 @@
-import { useSettingsStore } from '@/stores/settings-store';
+import { useSettingsStore } from '@/stores';
 import { db } from '@/db/dexie';
 import { toast } from 'sonner';
 import { DownloadCloud, UploadCloud, RefreshCw } from 'lucide-react';

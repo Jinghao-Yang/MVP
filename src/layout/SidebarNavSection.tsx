@@ -1,10 +1,19 @@
 /* ================================================
    FILE: src/layout/SidebarNavSection.tsx
    ================================================ */
-import { Settings, Rocket, FileText } from 'lucide-react';
+import {
+  Settings,
+  Rocket,
+  FileText,
+  Notebook,
+  User,
+  Folder,
+  BookOpen,
+  CheckCircle2,
+  Layers,
+} from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import * as Icons from 'lucide-react';
-import { Layers } from 'lucide-react';
 
 interface ObjectType {
   id: string;
@@ -38,84 +47,17 @@ const getObjectTypeIcon = (typeId: string, customIcon?: string) => {
   }
   switch (typeId) {
     case 'page':
-      return (
-        <svg
-          className="w-4 h-4 text-neutral-500 fill-none stroke-current"
-          viewBox="0 0 24 24"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="4" y="2" width="16" height="20" rx="2" />
-          <path d="M8 7h8M8 11h8M8 15h5" />
-        </svg>
-      );
+      return <FileText className="w-4 h-4 text-neutral-500" />;
     case 'note':
-      return (
-        <svg
-          className="w-4 h-4 text-emerald-600 fill-none stroke-current"
-          viewBox="0 0 24 24"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="3" y="6" width="18" height="13" rx="2" />
-          <path d="M7 6V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v2" />
-          <path d="M7 11h10M7 14h6" />
-        </svg>
-      );
+      return <Notebook className="w-4 h-4 text-emerald-600" />;
     case 'person':
-      return (
-        <svg
-          className="w-4 h-4 text-sky-500 fill-none stroke-current"
-          viewBox="0 0 24 24"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-          <circle cx="12" cy="7" r="4" />
-        </svg>
-      );
+      return <User className="w-4 h-4 text-sky-500" />;
     case 'project':
-      return (
-        <svg
-          className="w-4 h-4 text-rose-500 fill-none stroke-current"
-          viewBox="0 0 24 24"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polygon points="12 2 2 7 12 12 22 7 12 2" />
-          <polyline points="2 17 12 22 22 17" />
-          <polyline points="2 12 12 17 22 12" />
-        </svg>
-      );
+      return <Folder className="w-4 h-4 text-rose-500" />;
     case 'book':
-      return (
-        <svg
-          className="w-4 h-4 text-amber-600 fill-none stroke-current"
-          viewBox="0 0 24 24"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-        </svg>
-      );
+      return <BookOpen className="w-4 h-4 text-amber-600" />;
     case 'task':
-      return (
-        <svg
-          className="w-4 h-4 text-indigo-500 fill-none stroke-current"
-          viewBox="0 0 24 24"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <path d="m9 12 2 2 4-4" />
-        </svg>
-      );
+      return <CheckCircle2 className="w-4 h-4 text-indigo-500" />;
     default:
       return <Layers className="w-4 h-4 text-neutral-400" />;
   }

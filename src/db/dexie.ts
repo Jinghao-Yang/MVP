@@ -11,6 +11,7 @@ import type {
   TagEntity,
   AssetEntity,
   SemanticNode,
+  InlineTaskEntity,
 } from '@/types';
 
 interface ConfigEntity {
@@ -240,9 +241,26 @@ class AxiomDatabase extends Dexie {
   tags!: Table<TagEntity>;
   assets!: Table<AssetEntity>;
   semanticNodes!: Table<SemanticNode>;
+  inlineTasks!: Table<InlineTaskEntity>;
 
   constructor() {
     super('AxiomDatabase');
+
+    // Version 6: Add inlineTasks table
+    this.version(6).stores({
+      documents: 'id, typeId, title, updatedAt',
+      objectTypes: 'id, name',
+      properties: 'id, typeId, name, dataType',
+      docProperties: '[docId+propId], docId',
+      relations: '[sourceId+propId+targetId], targetId, sourceId',
+      links: '[sourceId+targetId], targetId, sourceId, start, end',
+      tags: '[docId+tag], docId, tag, start, end',
+      assets: 'id, filename, mimeType',
+      kanbanCards: 'id, columnId, order',
+      popoverStates: 'id',
+      config: 'id',
+      inlineTasks: 'id, docId, completed, date',
+    });
 
     // Version 5: Add position tracking for links and tags
     this.version(5).stores({
@@ -327,7 +345,7 @@ export async function seedDatabase() {
 
   const currentConfig = await db.config.get('app-config');
   const currentSchemaVersion = currentConfig?.schemaVersion ?? 0;
-  const TARGET_VERSION = 5;
+  const TARGET_VERSION = 6;
 
   // Run migrations if needed
   if (currentSchemaVersion < TARGET_VERSION) {
@@ -343,6 +361,7 @@ export async function seedDatabase() {
         db.docProperties,
         db.relations,
         db.tags,
+        db.inlineTasks,
       ],
       async () => {
         await runMigrations(currentSchemaVersion, TARGET_VERSION);
@@ -376,6 +395,7 @@ async function initializeDatabase(): Promise<void> {
       db.docProperties,
       db.relations,
       db.tags,
+      db.inlineTasks,
     ],
     async () => {
       // 1. Seed Object Types
@@ -434,7 +454,7 @@ async function initializeDatabase(): Promise<void> {
         { sourceId: 'topology-basics', propId: 'prop-book-author', targetId: 'john-doe' },
       ]);
 
-      await db.config.put({ id: 'app-config', schemaVersion: 5 });
+      await db.config.put({ id: 'app-config', schemaVersion: 6 });
     }
   );
 }

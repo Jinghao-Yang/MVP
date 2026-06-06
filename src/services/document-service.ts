@@ -4,9 +4,10 @@
  * 提供更高层次的抽象，可添加业务逻辑如缓存、验证等
  */
 
-import * as documentsDb from '@/db/documents';
-import * as linksDb from '@/db/links';
-import type { DocumentEntity } from '@/types';
+import { db } from '@/db/dexie';
+import { marked } from 'marked';
+import type { Token, Tokens } from 'marked';
+import type { DocumentEntity, BidirectionalLinkEntity } from '@/types';
 import {
   showErrorToast,
   showInfoToast,
@@ -15,6 +16,93 @@ import {
   setUnsavedChanges,
 } from '@/utils/error-handler';
 import { DOCUMENT } from '@/utils/constants';
+
+/**
+ * 带有类型信息的链接实体
+ */
+interface ParsedLink {
+  targetId: string;
+  type: 'link' | 'image';
+  text: string;
+}
+
+/**
+ * 递归遍历 token 提取所有链接
+ */
+function extractLinksFromTokens(tokens: Token[]): ParsedLink[] {
+  const links: ParsedLink[] = [];
+
+  for (const token of tokens) {
+    if (token.type === 'link') {
+      const linkToken = token as Tokens.Link;
+      if (linkToken.href && linkToken.href.trim()) {
+        links.push({
+          targetId: linkToken.href,
+          type: 'link',
+          text: linkToken.text || '',
+        });
+      }
+    }
+
+    if (token.type === 'image') {
+      const imageToken = token as Tokens.Image;
+      if (imageToken.href && imageToken.href.trim()) {
+        links.push({
+          targetId: imageToken.href,
+          type: 'image',
+          text: imageToken.text || '',
+        });
+      }
+    }
+
+    if (token.type === 'list') {
+      const listToken = token as Tokens.List;
+      for (const item of listToken.items) {
+        if (item.tokens) {
+          links.push(...extractLinksFromTokens(item.tokens));
+        }
+      }
+    }
+
+    if (token.type === 'table') {
+      const tableToken = token as Tokens.Table;
+      for (const row of tableToken.rows) {
+        for (const cell of row) {
+          links.push(...extractLinksFromTokens(cell.tokens));
+        }
+      }
+      for (const header of tableToken.header) {
+        links.push(...extractLinksFromTokens(header.tokens));
+      }
+    }
+
+    if ('tokens' in token && Array.isArray(token.tokens)) {
+      links.push(...extractLinksFromTokens(token.tokens));
+    }
+  }
+
+  return links;
+}
+
+/**
+ * 解析 Markdown 文本中的链接
+ */
+function parseMarkdownLinks(sourceId: string, text: string): BidirectionalLinkEntity[] {
+  const list: BidirectionalLinkEntity[] = [];
+  const tokens = marked.lexer(text);
+  const links = extractLinksFromTokens(tokens);
+
+  for (const link of links) {
+    list.push({
+      sourceId,
+      targetId: link.targetId,
+      start: 0,
+      end: 1,
+    });
+  }
+
+  return list;
+}
 
 /**
  * 显示内容大小警告
@@ -32,16 +120,10 @@ const showContentSizeWarning = () => {
 export const documentService = {
   /**
    * 获取指定 ID 的文档
-   *
-   * @param id - 文档 ID
-   * @returns 文档实体或 undefined（文档不存在或查询失败时）
-   *
-   * @remarks
-   * - 查询失败时会显示错误提示并返回 undefined
    */
   async getDocument(id: string): Promise<DocumentEntity | undefined> {
     try {
-      return await withRetry(() => documentsDb.getDocument(id), {
+      return await withRetry(() => db.documents.get(id), {
         maxRetries: 2,
         shouldRetry: (error, attempt) => {
           console.warn(`Retrying getDocument (attempt ${attempt + 1}):`, error);
@@ -59,15 +141,10 @@ export const documentService = {
 
   /**
    * 获取所有文档
-   *
-   * @returns 所有文档实体数组，查询失败时返回空数组
-   *
-   * @remarks
-   * - 查询失败时会显示错误提示并返回空数组
    */
   async getAllDocuments(): Promise<DocumentEntity[]> {
     try {
-      return await withRetry(() => documentsDb.getAllDocuments(), { maxRetries: 2 });
+      return await withRetry(() => db.documents.toArray(), { maxRetries: 2 });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       showErrorToast('Failed to load documents', {
@@ -79,13 +156,6 @@ export const documentService = {
 
   /**
    * 创建新文档
-   *
-   * @param document - 文档实体对象
-   * @throws 如果文档 ID 或 title 缺失时抛出错误
-   *
-   * @remarks
-   * - 文档 ID 和 title 为必填字段
-   * - 创建失败时会显示错误提示并重新抛出错误
    */
   async createDocument(document: DocumentEntity): Promise<void> {
     try {
@@ -95,7 +165,7 @@ export const documentService = {
       if (!document.title) {
         throw new Error('Document title is required');
       }
-      await withRetry(() => documentsDb.createDocument(document), { maxRetries: 2 });
+      await withRetry(() => db.documents.add(document), { maxRetries: 2 });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       showErrorToast('Failed to create document', {
@@ -106,17 +176,7 @@ export const documentService = {
   },
 
   /**
-   * 更新文档内容
-   * 同时自动更新文档的双向链接关系
-   *
-   * @param id - 文档 ID
-   * @param content - 新的文档内容（Markdown 格式）
-   * @throws 如果文档不存在或内容超过大小限制时抛出错误
-   *
-   * @remarks
-   * - 内容大小限制为 DOCUMENT.MAX_DOCUMENT_SIZE 字符
-   * - 超过限制时会显示警告提示
-   * - 更新失败时会显示错误提示并重新抛出错误
+   * 更新文档内容并自动更新链接
    */
   async updateDocumentContent(id: string, content: string): Promise<void> {
     try {
@@ -127,18 +187,24 @@ export const documentService = {
         );
       }
 
-      const doc = await documentsDb.getDocument(id);
+      const doc = await db.documents.get(id);
       if (!doc) {
         throw new Error(`Document not found: ${id}`);
       }
 
-      await withRetry(() => documentsDb.updateDocumentContent(id, content), {
-        maxRetries: 3,
-        shouldRetry: (error, attempt) => {
-          showWarningToast(`Save failed, retrying... (${attempt + 1}/3)`);
-          return true;
+      await withRetry(
+        async () => {
+          await db.documents.update(id, { content, updatedAt: Date.now() });
+          await documentService.updateDocumentLinks(id, content);
         },
-      });
+        {
+          maxRetries: 3,
+          shouldRetry: (error, attempt) => {
+            showWarningToast(`Save failed, retrying... (${attempt + 1}/3)`);
+            return true;
+          },
+        }
+      );
 
       setUnsavedChanges(false);
     } catch (error) {
@@ -156,25 +222,19 @@ export const documentService = {
 
   /**
    * 更新文档元数据
-   *
-   * @param id - 文档 ID
-   * @param metadata - 要更新的元数据字段（title、badge、badgeClass）
-   * @throws 如果文档不存在时抛出错误
-   *
-   * @remarks
-   * - 仅更新提供的字段，其他字段保持不变
-   * - 更新失败时会显示错误提示并重新抛出错误
    */
   async updateDocumentMetadata(
     id: string,
     metadata: Partial<Pick<DocumentEntity, 'title' | 'badge' | 'badgeClass'>>
   ): Promise<void> {
     try {
-      const doc = await documentsDb.getDocument(id);
+      const doc = await db.documents.get(id);
       if (!doc) {
         throw new Error(`Document not found: ${id}`);
       }
-      await withRetry(() => documentsDb.updateDocumentMetadata(id, metadata), { maxRetries: 2 });
+      await withRetry(() => db.documents.update(id, { ...metadata, updatedAt: Date.now() }), {
+        maxRetries: 2,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       showErrorToast('Failed to update document', {
@@ -185,23 +245,23 @@ export const documentService = {
   },
 
   /**
-   * 删除文档
-   * 同时自动删除相关的链接关系
-   *
-   * @param id - 文档 ID
-   * @throws 如果文档不存在时抛出错误
-   *
-   * @remarks
-   * - 删除操作会级联删除该文档的所有链接关系
-   * - 删除失败时会显示错误提示并重新抛出错误
+   * 删除文档并级联删除关联的链接
    */
   async deleteDocument(id: string): Promise<void> {
     try {
-      const doc = await documentsDb.getDocument(id);
+      const doc = await db.documents.get(id);
       if (!doc) {
         throw new Error(`Document not found: ${id}`);
       }
-      await withRetry(() => documentsDb.deleteDocument(id), { maxRetries: 2 });
+      await withRetry(
+        async () => {
+          await db.documents.delete(id);
+          await db.links.where({ sourceId: id }).delete();
+          await db.links.where({ targetId: id }).delete();
+          await db.inlineTasks.where('docId').equals(id).delete();
+        },
+        { maxRetries: 2 }
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       showErrorToast('Failed to delete document', {
@@ -212,18 +272,17 @@ export const documentService = {
   },
 
   /**
-   * 获取指向目标文档的所有反向链接
-   * 返回引用了该文档的所有源文档 ID
-   *
-   * @param id - 目标文档 ID
-   * @returns 源文档 ID 数组，查询失败时返回空数组
-   *
-   * @remarks
-   * - 查询失败时会显示错误提示并返回空数组
+   * 获取反向链接
    */
   async getBacklinks(id: string): Promise<string[]> {
     try {
-      return await withRetry(() => linksDb.getBacklinks(id), { maxRetries: 2 });
+      return await withRetry(
+        async () => {
+          const list = await db.links.where({ targetId: id }).toArray();
+          return list.map((item) => item.sourceId);
+        },
+        { maxRetries: 2 }
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       showErrorToast('Failed to load backlinks', {
@@ -234,18 +293,17 @@ export const documentService = {
   },
 
   /**
-   * 获取源文档指向的所有正向链接
-   * 返回该文档引用的所有目标文档 ID
-   *
-   * @param id - 源文档 ID
-   * @returns 目标文档 ID 数组，查询失败时返回空数组
-   *
-   * @remarks
-   * - 查询失败时会显示错误提示并返回空数组
+   * 获取正向链接
    */
   async getForwardLinks(id: string): Promise<string[]> {
     try {
-      return await withRetry(() => linksDb.getForwardLinks(id), { maxRetries: 2 });
+      return await withRetry(
+        async () => {
+          const list = await db.links.where({ sourceId: id }).toArray();
+          return list.map((item) => item.targetId);
+        },
+        { maxRetries: 2 }
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       showErrorToast('Failed to load links', {
@@ -256,20 +314,21 @@ export const documentService = {
   },
 
   /**
-   * 更新文档的双向链接关系
-   * 解析文档内容中的 Markdown 链接并更新链接表
-   *
-   * @param id - 文档 ID
-   * @param content - 文档内容（Markdown 格式）
-   *
-   * @remarks
-   * - 解析内容中的 [[link]] 格式双链
-   * - 自动维护链接表的正向和反向关系
-   * - 更新失败时会显示错误提示
+   * 更新链接表数据
    */
   async updateDocumentLinks(id: string, content: string): Promise<void> {
     try {
-      await withRetry(() => linksDb.updateDocumentLinks(id, content), { maxRetries: 2 });
+      const extractedLinks = parseMarkdownLinks(id, content);
+      await withRetry(
+        () =>
+          db.transaction('rw', db.links, async () => {
+            await db.links.where({ sourceId: id }).delete();
+            if (extractedLinks.length > 0) {
+              await db.links.bulkAdd(extractedLinks);
+            }
+          }),
+        { maxRetries: 2 }
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       showErrorToast('Failed to update links', {

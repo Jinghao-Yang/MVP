@@ -30,6 +30,8 @@ export interface PopupData {
   height: number;
   /** 弹窗堆叠层级索引 */
   stackIndex: number;
+  /** 弹窗深度层级 */
+  depth?: number;
   /** 是否固定 */
   isPinned: boolean;
   /** 是否最小化 */

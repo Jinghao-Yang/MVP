@@ -1,6 +1,8 @@
 {
-  "name": "",
-  "description": "",
+  "name": "Knowledge Craft",
+  "description": "Capacities-inspired knowledge database, document viewer, and custom schema manager with markdown text processing, lateral backlinks navigation, and a dynamic timeline.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

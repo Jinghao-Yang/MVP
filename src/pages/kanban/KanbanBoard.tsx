@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { DndContext, DragEndEvent } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, DragStartEvent, DragOverlay } from '@dnd-kit/core';
 import { Database, Sparkles, Layers, Book } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/dexie';
 import { LedgerColumn } from './components/LedgerColumn';
+import { IndexCard } from './components/IndexCard';
+import { ManuscriptBlock } from './components/ManuscriptBlock';
 import { toast } from 'sonner';
 
 type ViewMode = 'zettelkasten' | 'books';
@@ -11,6 +13,7 @@ type ViewMode = 'zettelkasten' | 'books';
 export function KanbanBoard() {
   const [viewMode, setViewMode] = useState<ViewMode>('zettelkasten');
   const [isSynthesizing, setIsSynthesizing] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   // 1. Reactive live-query to fetch documents and their properties straight from IndexedDB
   const documents = useLiveQuery(() => db.documents.toArray(), []);
@@ -93,7 +96,12 @@ export function KanbanBoard() {
   const bookReadingCards = viewMode === 'books' ? getBookCardsForStatus('Reading') : [];
   const bookCompletedCards = viewMode === 'books' ? getBookCardsForStatus('Completed') : [];
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveId(null);
     const { active, over } = event;
     if (!over) return;
 
@@ -205,7 +213,7 @@ export function KanbanBoard() {
             </div>
           </div>
         ) : (
-          <DndContext onDragEnd={handleDragEnd}>
+          <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             {viewMode === 'zettelkasten' ? (
               <div className="grid grid-cols-1 md:grid-cols-4 h-full flex-1">
                 <LedgerColumn id="fleeting" index="01" title="Fleeting" cards={fleetingCards} />
@@ -242,6 +250,36 @@ export function KanbanBoard() {
                 />
               </div>
             )}
+
+            <DragOverlay style={{ zIndex: 'var(--z-dragging)' }}>
+              {activeId ? (
+                <div className="opacity-95 shadow-2xl scale-[1.03] rotate-1 cursor-grabbing">
+                  {(() => {
+                    const activeCard = [
+                      ...fleetingCards,
+                      ...seedlingCards,
+                      ...evergreenCards,
+                      ...synthesisCards,
+                      ...bookToReadCards,
+                      ...bookReadingCards,
+                      ...bookCompletedCards,
+                    ].find((c) => c.id === activeId);
+
+                    if (!activeCard) return null;
+
+                    const isSynthesis = synthesisCards.some((c) => c.id === activeId);
+                    const isCompletedBook = bookCompletedCards.some((c) => c.id === activeId);
+                    const isTerminal = isSynthesis || isCompletedBook;
+
+                    return isTerminal ? (
+                      <ManuscriptBlock card={activeCard} isDragging />
+                    ) : (
+                      <IndexCard card={activeCard} isDragging />
+                    );
+                  })()}
+                </div>
+              ) : null}
+            </DragOverlay>
           </DndContext>
         )}
       </div>

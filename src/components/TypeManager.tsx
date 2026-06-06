@@ -5,9 +5,66 @@ import { useState, useActionState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/dexie';
 import { toast } from 'sonner';
-import { X, Plus, Trash2, Edit2, Check } from 'lucide-react';
-import * as Icons from 'lucide-react';
-import type { LucideProps } from 'lucide-react';
+import {
+  X,
+  Plus,
+  Trash2,
+  Edit2,
+  Check,
+  Book,
+  Layers,
+  User,
+  CheckCircle,
+  Archive,
+  Briefcase,
+  Calendar,
+  Folder,
+  Hash,
+  Heart,
+  Home,
+  Lightbulb,
+  Map,
+  Star,
+  Bookmark,
+  Tag,
+  FileText,
+  Atom,
+  Sparkles,
+  Compass,
+  Wallet,
+  Code,
+  Wrench,
+  Database,
+  HelpCircle,
+} from 'lucide-react';
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  Book,
+  Layers,
+  User,
+  CheckCircle,
+  Archive,
+  Briefcase,
+  Calendar,
+  Folder,
+  Hash,
+  Heart,
+  Home,
+  Lightbulb,
+  Map,
+  Star,
+  Bookmark,
+  Tag,
+  FileText,
+  Atom,
+  Sparkles,
+  Compass,
+  Wallet,
+  Code,
+  Wrench,
+  Database,
+  HelpCircle,
+};
 
 // Help helper to resolve Lucide dynamic icons with fallback
 export function CustomLucideIcon({
@@ -17,8 +74,7 @@ export function CustomLucideIcon({
   name: string;
   className?: string;
 }) {
-  const IconComponent =
-    (Icons as unknown as Record<string, React.FC<LucideProps>>)[name] || Icons.HelpCircle;
+  const IconComponent = iconMap[name] || HelpCircle;
   return <IconComponent className={className} />;
 }
 

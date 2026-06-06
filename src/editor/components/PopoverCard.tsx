@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pin, Minimize2, X } from 'lucide-react';
 import { motion, useDragControls } from 'motion/react';
 import type { PopoverCardProps } from '@/types';
-import { usePopupStore } from '@/stores/popup-store';
+import { usePopupStore } from '@/stores';
 import { useDraggablePopup } from './useDraggablePopup';
 
 export function PopoverCard({

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Command } from 'cmdk';
 import { FileText, Plus, Layout, Maximize2, Minimize2, ArrowRight, Sparkles } from 'lucide-react';
-import { useOverlay } from '@/hooks/useOverlay';
-import { useUiStore } from '@/stores/ui-store';
-import { useDocument } from '@/hooks/useDocument';
+import { useUiStore } from '@/stores/app-store';
+import { getAllDocuments, createDocument } from '@/services/document-service';
+import { searchIndexingService } from '@/services/search-indexing-service';
 import { toast } from 'sonner';
 import type { DocumentEntity } from '@/types';
 
@@ -25,20 +25,20 @@ interface CommandItem {
 }
 
 export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
-  const { overlayProps } = useOverlay({ isOpen, onClose });
   const [search, setSearch] = useState('');
   const [documents, setDocuments] = useState<DocumentEntity[]>([]);
-  const { getAllDocuments, createDocument } = useDocument();
   const { setActivePage, setZenMode, isZenMode, setStatus } = useUiStore();
 
   // 加载文档列表
   useEffect(() => {
     if (isOpen) {
-      getAllDocuments().then((docs) => {
-        setDocuments(docs);
+      searchIndexingService.forceReindex().then(() => {
+        getAllDocuments().then((docs) => {
+          setDocuments(docs);
+        });
       });
     }
-  }, [isOpen, getAllDocuments]);
+  }, [isOpen]);
 
   // 重置搜索状态
   useEffect(() => {
@@ -148,12 +148,24 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       },
     ];
 
-    // 添加文档命令
-    const documentCommands: CommandItem[] = documents.map((doc) => ({
+    // Add document commands with periodic crawled full-text search results
+    const matches = search
+      ? searchIndexingService.search(search)
+      : documents.map((d) => {
+          const contentStr = d.content || '';
+          return {
+            doc: d,
+            matchedSnippet: contentStr
+              ? contentStr.slice(0, 80) + (contentStr.length > 80 ? '...' : '')
+              : '',
+          };
+        });
+
+    const documentCommands: CommandItem[] = matches.map(({ doc, matchedSnippet }) => ({
       id: `doc-${doc.id}`,
       type: 'document',
       label: doc.title,
-      description: new Date(doc.updatedAt).toLocaleDateString(),
+      description: matchedSnippet || new Date(doc.updatedAt).toLocaleDateString(),
       shortcut: undefined,
       icon: FileText,
       action: () => handleNavigateToDocument(doc),
@@ -177,7 +189,12 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
 
   return (
     <>
-      <div {...overlayProps} />
+      <div
+        className={`fixed inset-0 z-[99] bg-black/5 backdrop-blur-sm transition-opacity duration-300 ${
+          isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={onClose}
+      />
       <Command.Dialog
         open={isOpen}
         onOpenChange={onClose}
@@ -203,7 +220,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                 {items.map((command) => (
                   <Command.Item
                     key={command.id}
-                    value={command.label}
+                    value={`${command.label} ${command.description || ''}`}
                     onSelect={command.action}
                     className="flex items-center gap-3 p-3 hover:bg-white/40 cursor-pointer transition-colors group"
                   >

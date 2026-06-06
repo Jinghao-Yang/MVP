@@ -141,3 +141,16 @@ export interface BidirectionalLinkEntity {
   start: number;
   end: number;
 }
+
+/**
+ * Inline task checklist item extracted from markdown
+ */
+export interface InlineTaskEntity {
+  id: string; // docId-inline-index
+  docId: string;
+  docTitle: string;
+  text: string;
+  completed: boolean;
+  date: string | null;
+  priority: string;
+}

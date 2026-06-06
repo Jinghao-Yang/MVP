@@ -2,11 +2,10 @@
    FILE: src/layout/Sidebar.tsx
    ================================================ */
 import { useRef, useEffect, useState } from 'react';
-import { ChevronRight, Settings } from 'lucide-react';
+import { ChevronRight, Settings, Keyboard } from 'lucide-react';
 import { toast } from 'sonner';
-import { useUiStore, type UiState } from '@/stores/ui-store';
+import { useUiStore, type UiState } from '@/stores/app-store';
 import { useShallow } from 'zustand/react/shallow';
-import { useSyncStore } from '@/stores/sync-store';
 import { db } from '@/db/dexie';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { TypeManager } from '@/components/TypeManager';
@@ -16,7 +15,6 @@ import { SidebarHeader } from './SidebarHeader';
 import { SidebarNavSection } from './SidebarNavSection';
 import { DiscoverySection } from './DiscoverySection';
 import { WarningSection } from './WarningSection';
-import { SyncStatus } from './SyncStatus';
 import { SidebarFooter } from './SidebarFooter';
 
 function SidebarComponent({
@@ -59,10 +57,6 @@ function SidebarComponent({
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
   const isExpanded = isSidebarPinned || isSidebarHovered;
-
-  const syncStatus = useSyncStore((state) => state.syncStatus);
-  const syncNow = useSyncStore((state) => state.syncNow);
-  const lastSynced = useSyncStore((state) => state.lastSyncedAt);
 
   // States to keep Sidebar interactive
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
@@ -338,11 +332,24 @@ function SidebarComponent({
                     Settings
                   </span>
                 </button>
+                <button
+                  className="spring-click hover-ui w-full px-3 py-2 flex items-center gap-3 text-left group cursor-pointer border-none bg-transparent"
+                  onClick={() => {
+                    useUiStore.getState().setKeyboardShortcutsOpen(true);
+                  }}
+                >
+                  <Keyboard className="w-4 h-4 text-neutral-400 group-hover:text-black transition-colors" />
+                  <span className="nav-text flex-1 text-neutral-600 group-hover:text-black font-semibold">
+                    Shortcuts
+                  </span>
+                  <kbd className="font-mono text-[9px] opacity-40 group-hover:opacity-75 transition-opacity px-1 bg-neutral-100 rounded">
+                    ?
+                  </kbd>
+                </button>
               </div>
             </div>
           </nav>
 
-          <SyncStatus syncStatus={syncStatus} lastSynced={lastSynced} onSyncNow={syncNow} />
           <SidebarFooter isSidebarPinned={isSidebarPinned} onTogglePin={toggleSidebarPin} />
         </div>
       </aside>

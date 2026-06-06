@@ -3,7 +3,7 @@
    ================================================== */
 import { ChevronLeft, ChevronRight, BookOpen, X } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useUiStore } from '@/stores/ui-store';
+import { useUiStore } from '@/stores';
 import { db } from '@/db/dexie';
 import { useDocumentHistory } from './DocumentHistoryNav';
 import { SplitEditor } from './SplitEditor';
@@ -76,7 +76,7 @@ export function EditorRightPane() {
             <SplitEditor wikiId={currentWikiId} document={currentDocument} />
 
             {/* 动态反向引用网络 */}
-            <BacklinksPanel wikiId={currentWikiId} onLinkClick={loadWiki} />
+            <BacklinksPanel wikiId={currentWikiId} onLinkClick={loadWiki} variant="simple" />
           </div>
         </div>
       ) : (

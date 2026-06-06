@@ -4,7 +4,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { ProjectPage } from '@/pages/ProjectPage';
 import { EditorPage } from '@/editor/EditorPage';
-import { useUiStore, type UiState } from '@/stores/ui-store';
+import { useUiStore, type UiState } from '@/stores';
 import { useShallow } from 'zustand/react/shallow';
 
 interface PageRouterProps {

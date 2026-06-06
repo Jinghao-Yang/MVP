@@ -2,7 +2,7 @@
  * 安全内容处理工具
  * 用于防范 XSS 攻击，确保用户内容安全显示
  */
-import DOMPurify from 'isomorphic-dompurify';
+import DOMPurify from 'dompurify';
 import type { Config } from 'dompurify';
 
 /**

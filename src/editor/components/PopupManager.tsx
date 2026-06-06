@@ -3,7 +3,7 @@
    ================================================ */
 import { useShallow } from 'zustand/react/shallow';
 import type { PopupData } from '@/types';
-import { usePopupStore, type PopupState } from '@/stores/popup-store';
+import { usePopupStore, type PopupState } from '@/stores';
 import { PopoverCard } from './PopoverCard';
 
 export function PopupManager() {

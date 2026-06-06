@@ -27,8 +27,12 @@ export function DraggableItem({ card, isTerminal }: DraggableItemProps) {
 
   const style: React.CSSProperties = {
     transform: transform ? CSS.Translate.toString(transform) : undefined,
-    position: isDragging ? 'relative' : 'static',
-    zIndex: isDragging ? 999 : 1,
+    opacity: isDragging ? 0.35 : 1,
+    scale: isDragging ? 0.95 : undefined,
+    zIndex: isDragging ? 'var(--z-dragging)' : undefined,
+    position: isDragging ? 'relative' : undefined,
+    cursor: 'grab',
+    transition: 'opacity 0.2s, scale 0.2s',
   };
 
   return (

@@ -17,6 +17,7 @@ export type {
   AssetEntity,
   SemanticNode,
   PropertyValue,
+  InlineTaskEntity,
 } from './document';
 
 // Popup-related types

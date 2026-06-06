@@ -7,10 +7,55 @@
 
 import { db } from '@/db/dexie';
 import { parserService } from '@/services/parser-service';
-import type { SemanticNode } from '@/types';
+import type { InlineTaskEntity } from '@/types';
 
 interface DocumentChangeListener {
   (docId: string, content: string): void;
+}
+
+/**
+ * Extract checklist/inline tasks from document markdown text
+ */
+export function extractInlineTasks(
+  docId: string,
+  docTitle: string,
+  content: string
+): InlineTaskEntity[] {
+  const list: InlineTaskEntity[] = [];
+  const lines = content.split('\n');
+  lines.forEach((line, index) => {
+    const match = line.match(/^\s*[-*]\s+\[([ xX])\]\s+(.+)$/);
+    if (match) {
+      const completed = match[1].toLowerCase() === 'x';
+      let text = match[2].trim();
+
+      let date: string | null = null;
+      const dateMatch = text.match(/@(\d{4}-\d{2}-\d{2})/);
+      if (dateMatch) {
+        date = dateMatch[1];
+        text = text.replace(/@\d{4}-\d{2}-\d{2}/, '').trim();
+      }
+
+      let priority = 'Medium';
+      const pMatch = text.match(/!(High|Medium|Low)/gi);
+      if (pMatch) {
+        priority = pMatch[0].substring(1);
+        priority = priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase();
+        text = text.replace(/!(High|Medium|Low)/gi, '').trim();
+      }
+
+      list.push({
+        id: `${docId}-inline-${index}`,
+        docId,
+        docTitle,
+        text,
+        completed,
+        date,
+        priority,
+      });
+    }
+  });
+  return list;
 }
 
 /**
@@ -53,15 +98,20 @@ class DocumentParseService {
   }
 
   /**
-   * 执行文档解析
+   * 执行文档解析 (公开，供初始化等使用)
    */
-  private async parseDocument(docId: string, content: string): Promise<void> {
+  async parseDocument(docId: string, content: string): Promise<void> {
     try {
       // 1. 清除特定内存缓存
       parserService.invalidate(docId);
 
+      const doc = await db.documents.get(docId);
+      const docTitle = doc?.title || 'Untitled';
+      const inlineTasks =
+        doc?.typeId === 'task' ? [] : extractInlineTasks(docId, docTitle, content);
+
       // 2. 执行单向增量解析提取（带位置）
-      const { nodes, locatedWikiLinks, locatedTags } = parserService.parseMarkdownWithLocation(
+      const { locatedWikiLinks, locatedTags } = parserService.parseMarkdownWithLocation(
         docId,
         content
       );
@@ -76,7 +126,7 @@ class DocumentParseService {
       });
 
       // 4. 写入多表事务索引
-      await this.updateIndexes(docId, nodes, locatedWikiLinks, locatedTags);
+      await this.updateIndexes(docId, locatedWikiLinks, locatedTags, inlineTasks);
     } catch (error) {
       console.error('Failed to parse document:', error);
     }
@@ -87,17 +137,11 @@ class DocumentParseService {
    */
   private async updateIndexes(
     docId: string,
-    nodes: SemanticNode[],
     locatedWikiLinks: Array<{ targetId: string; start: number; end: number }>,
-    locatedTags: Array<{ tag: string; start: number; end: number }>
+    locatedTags: Array<{ tag: string; start: number; end: number }>,
+    inlineTasks: InlineTaskEntity[]
   ): Promise<void> {
-    await db.transaction('rw', [db.semanticNodes, db.links, db.tags], async () => {
-      // 更新语义节点
-      await db.semanticNodes.where('docId').equals(docId).delete();
-      if (nodes.length > 0) {
-        await db.semanticNodes.bulkAdd(nodes);
-      }
-
+    await db.transaction('rw', [db.links, db.tags, db.inlineTasks], async () => {
       // 更新链接
       await db.links.where('sourceId').equals(docId).delete();
       const linkEntities = locatedWikiLinks.map((link) => ({
@@ -120,6 +164,12 @@ class DocumentParseService {
       }));
       if (tagEntities.length > 0) {
         await db.tags.bulkAdd(tagEntities);
+      }
+
+      // 更新 inlineTasks
+      await db.inlineTasks.where('docId').equals(docId).delete();
+      if (inlineTasks.length > 0) {
+        await db.inlineTasks.bulkAdd(inlineTasks);
       }
     });
   }

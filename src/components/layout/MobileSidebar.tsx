@@ -4,7 +4,7 @@
 import { Drawer } from 'vaul';
 import { Menu } from 'lucide-react';
 import { Sidebar } from '@/layout/Sidebar';
-import { useUiStore, type UiState } from '@/stores/ui-store';
+import { useUiStore, type UiState } from '@/stores';
 import { useShallow } from 'zustand/react/shallow';
 import { toast } from 'sonner';
 

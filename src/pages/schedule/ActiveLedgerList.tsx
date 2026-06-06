@@ -84,7 +84,10 @@ function ActiveLedgerListComponent({
       </div>
 
       {/* Render Category sorted ledgers */}
-      <div className="space-y-4 max-h-[460px] overflow-y-auto custom-scrollbar pr-1">
+      <div
+        id="ledger-scroll-container"
+        className="space-y-4 max-h-[460px] overflow-y-auto custom-scrollbar pr-1"
+      >
         {Object.keys(groupedTasksMap).every(
           (g) => groupedTasksMap[g].objects.length === 0 && groupedTasksMap[g].inlines.length === 0
         ) ? (

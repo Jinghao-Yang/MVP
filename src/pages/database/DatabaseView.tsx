@@ -30,7 +30,7 @@ import { toast } from 'sonner';
 import { documentService } from '@/services/document-service';
 import type { DocumentEntity } from '@/types';
 import 'react-day-picker/dist/style.css';
-import { useUiStore, type UiState } from '@/stores/ui-store';
+import { useUiStore, type UiState } from '@/stores';
 import { useShallow } from 'zustand/react/shallow';
 import { assetService } from '@/services/asset-service';
 

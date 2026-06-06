@@ -49,3 +49,29 @@ export const ANIMATION = {
   /** 弹簧平滑动画时长（秒） */
   SPRING_SMOOTH: 0.3,
 };
+
+/**
+ * 任务和卡片状态常量
+ */
+export const TASK_STATUS = {
+  TODO: 'Todo',
+  IN_PROGRESS: 'In Progress',
+  COMPLETED: 'Completed',
+} as const;
+
+/**
+ * 视图模式常量
+ */
+export const VIEW_MODES = {
+  CALENDAR: 'calendar',
+  KANBAN: 'kanban',
+} as const;
+
+/**
+ * 优先级常量
+ */
+export const PRIORITY_LEVELS = {
+  HIGH: 'High',
+  MEDIUM: 'Medium',
+  LOW: 'Low',
+} as const;

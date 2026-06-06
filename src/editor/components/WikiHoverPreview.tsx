@@ -4,7 +4,7 @@
 import { useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/dexie';
-import { usePopupStore } from '@/stores/popup-store';
+import { usePopupStore } from '@/stores';
 import { useShallow } from 'zustand/react/shallow';
 import {
   useFloating,
