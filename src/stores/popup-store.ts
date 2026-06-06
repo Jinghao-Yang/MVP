@@ -86,7 +86,7 @@ export interface PopupState {
   handleMouseEnter: (
     event: MouseEvent | React.MouseEvent<Element>,
     wikiId: string,
-    depth?: number
+    stackIndex?: number
   ) => void;
   handleMouseLeave: (wikiId: string) => void;
 
@@ -95,7 +95,7 @@ export interface PopupState {
   handlePopoverMouseLeave: (id: string) => void;
 
   // 链接点击处理
-  handleClick: (wikiId: string, depth?: number) => void;
+  handleClick: (wikiId: string, stackIndex?: number) => void;
 
   // 桌面拖拽与缩放事件（仅更新内存状态）
   handlePositionChange: (id: string, x: number, y: number) => void;
@@ -233,7 +233,7 @@ export const usePopupStore = create<PopupState>()((set, get) => ({
         y: 150,
         width: DEFAULT_POPUP_CONFIG.width,
         height: DEFAULT_POPUP_CONFIG.height,
-        depth: popups.length + 1,
+        stackIndex: popups.length + 1,
         isPinned: true, // 默认固定
         isMinimized: false,
       };
@@ -359,7 +359,7 @@ export const usePopupStore = create<PopupState>()((set, get) => ({
         y: 150,
         width: DEFAULT_POPUP_CONFIG.width,
         height: DEFAULT_POPUP_CONFIG.height,
-        depth: popups.length + 1,
+        stackIndex: popups.length + 1,
         isPinned: true,
         isMinimized: false,
       };

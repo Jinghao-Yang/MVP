@@ -28,8 +28,8 @@ export interface PopupData {
   width: number;
   /** 弹窗高度 */
   height: number;
-  /** 弹窗深度层级 */
-  depth: number;
+  /** 弹窗堆叠层级索引 */
+  stackIndex: number;
   /** 是否固定 */
   isPinned: boolean;
   /** 是否最小化 */
@@ -86,11 +86,15 @@ export interface PopoverCardProps {
   /** 鼠标离开回调 */
   onMouseLeave: () => void;
   /** 链接悬停回调 */
-  onLinkHover: (e: MouseEvent | React.MouseEvent<Element>, wikiId: string, depth?: number) => void;
+  onLinkHover: (
+    e: MouseEvent | React.MouseEvent<Element>,
+    wikiId: string,
+    stackIndex?: number
+  ) => void;
   /** 链接离开回调 */
   onLinkLeave: (wikiId: string) => void;
   /** 链接点击回调（触摸设备使用） */
-  onLinkClick: (wikiId: string, depth?: number) => void;
+  onLinkClick: (wikiId: string, stackIndex?: number) => void;
   /** 拖拽开始回调 */
   onDragStart: () => void;
   /** 拖拽结束回调 */

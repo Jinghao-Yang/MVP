@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { Command } from 'cmdk';
 import { FileText, Plus, Layout, Maximize2, Minimize2, ArrowRight, Sparkles } from 'lucide-react';
 import { useOverlay } from '@/hooks/useOverlay';
@@ -24,7 +24,7 @@ interface CommandItem {
   action: () => void;
 }
 
-function CommandPaletteComponent({ isOpen, onClose }: CommandPaletteProps) {
+export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const { overlayProps } = useOverlay({ isOpen, onClose });
   const [search, setSearch] = useState('');
   const [documents, setDocuments] = useState<DocumentEntity[]>([]);
@@ -48,7 +48,7 @@ function CommandPaletteComponent({ isOpen, onClose }: CommandPaletteProps) {
   }, [isOpen]);
 
   // 创建新文档
-  const handleCreateDocument = useCallback(async () => {
+  const handleCreateDocument = async () => {
     const title = search.trim() || 'Untitled Document';
     const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
@@ -68,41 +68,35 @@ function CommandPaletteComponent({ isOpen, onClose }: CommandPaletteProps) {
     } catch {
       toast.error('Failed to create document');
     }
-  }, [search, createDocument, setActivePage, onClose]);
+  };
 
   // 导航到文档
-  const handleNavigateToDocument = useCallback(
-    (doc: DocumentEntity) => {
-      useUiStore.getState().setMainWikiId(doc.id);
-      setActivePage('editor');
-      onClose();
-    },
-    [setActivePage, onClose]
-  );
+  const handleNavigateToDocument = (doc: DocumentEntity) => {
+    useUiStore.getState().setMainWikiId(doc.id);
+    setActivePage('editor');
+    onClose();
+  };
 
   // 切换视图
-  const handleNavigateToPage = useCallback(
-    (page: string) => {
-      setActivePage(page);
-      onClose();
-    },
-    [setActivePage, onClose]
-  );
+  const handleNavigateToPage = (page: string) => {
+    setActivePage(page);
+    onClose();
+  };
 
   // 切换禅模式
-  const handleToggleZenMode = useCallback(() => {
+  const handleToggleZenMode = () => {
     setZenMode(!isZenMode);
     setStatus(!isZenMode ? 'Zen mode activated.' : 'Restored layout.');
     toast.info(!isZenMode ? 'Zen mode activated.' : 'Restored layout.');
     onClose();
-  }, [setZenMode, isZenMode, setStatus, onClose]);
+  };
 
   // 强制合成
-  const handleForceSynthesis = useCallback(() => {
+  const handleForceSynthesis = () => {
     setStatus('Running synthesis...');
     toast.info('Running synthesis...');
     onClose();
-  }, [setStatus, onClose]);
+  };
 
   // 构建命令列表
   const buildCommands = (): CommandItem[] => {
@@ -234,5 +228,3 @@ function CommandPaletteComponent({ isOpen, onClose }: CommandPaletteProps) {
     </>
   );
 }
-
-export const CommandPalette = memo(CommandPaletteComponent);

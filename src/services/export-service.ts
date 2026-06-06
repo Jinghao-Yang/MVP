@@ -6,8 +6,18 @@ import { showErrorToast } from '@/utils/error-handler';
 
 export const exportService = {
   /**
-   * Generates a valid Markdown string decorated with aggregated YAML frontmatter.
-   * Compiles custom properties from 'docProperties' and relationships from 'relations'.
+   * 生成带有 YAML frontmatter 的 Markdown 文档
+   * 聚合文档属性和关系数据，生成标准化的导出格式
+   *
+   * @param docId - 文档 ID
+   * @returns 带有 YAML frontmatter 的 Markdown 字符串，文档不存在或生成失败时返回空字符串
+   *
+   * @remarks
+   * - frontmatter 包含：id、title、type、badge、updated_at 等标准字段
+   * - 自动聚合 docProperties 表中的自定义属性
+   * - 自动聚合 relations 表中的关联关系
+   * - 属性名会被转换为小写并替换空格为下划线
+   * - 生成失败时会显示错误提示
    */
   async generateMarkdownWithFrontmatter(docId: string): Promise<string> {
     try {
@@ -83,7 +93,17 @@ export const exportService = {
   },
 
   /**
-   * Generates frontmatter aggregated Markdown file and triggers interactive browser download.
+   * 触发文档下载
+   * 生成 Markdown 文件并启动浏览器下载
+   *
+   * @param docId - 文档 ID
+   * @throws 如果文档不存在时抛出错误
+   *
+   * @remarks
+   * - 文件名基于文档标题生成（小写、连字符分隔）
+   * - 文件格式为 .md，编码为 UTF-8
+   * - 下载完成后自动清理创建的 DOM 元素和 Blob URL
+   * - 下载失败时会显示错误提示并重新抛出错误
    */
   async triggerDownload(docId: string): Promise<void> {
     try {

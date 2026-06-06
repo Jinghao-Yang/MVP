@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import CodeMirror, { type ReactCodeMirrorProps } from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { EditorView, ViewUpdate } from '@codemirror/view';
@@ -22,20 +22,13 @@ interface MarkdownEditorProps {
   onUpdate?: (update: ViewUpdate) => void;
 }
 
-function arePropsEqual(prevProps: MarkdownEditorProps, nextProps: MarkdownEditorProps): boolean {
-  return (
-    prevProps.docId === nextProps.docId &&
-    prevProps.value === nextProps.value &&
-    prevProps.showStats === nextProps.showStats
-  );
-}
-
 const processImageFile = async (file: File, fileName?: string): Promise<string> => {
   const axiomUrl = await assetService.saveAsset(file);
   return `\n![${fileName || file.name}](${axiomUrl})\n`;
 };
 
-export const MarkdownEditor = memo(function MarkdownEditor({
+export function MarkdownEditor({
+  docId,
   value,
   onChange,
   extensions = [],
@@ -49,6 +42,7 @@ export const MarkdownEditor = memo(function MarkdownEditor({
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [resolvedAssets, setResolvedAssets] = useState<Record<string, string>>({});
   const resolvedAssetsRef = useRef(resolvedAssets);
+  const previousDocIdRef = useRef<string>(docId);
 
   useEffect(() => {
     resolvedAssetsRef.current = resolvedAssets;
@@ -60,9 +54,17 @@ export const MarkdownEditor = memo(function MarkdownEditor({
     const matches = value.match(regex) || [];
 
     const resolveAll = async () => {
-      const currentResolved = resolvedAssetsRef.current;
-      const newResolved: Record<string, string> = { ...currentResolved };
+      const docIdChanged = previousDocIdRef.current !== docId;
+      let newResolved: Record<string, string>;
       let updated = false;
+
+      if (docIdChanged) {
+        newResolved = {};
+        previousDocIdRef.current = docId;
+        updated = true;
+      } else {
+        newResolved = { ...resolvedAssetsRef.current };
+      }
 
       for (const rawUrl of matches) {
         if (!newResolved[rawUrl]) {
@@ -78,22 +80,19 @@ export const MarkdownEditor = memo(function MarkdownEditor({
     };
 
     resolveAll();
-  }, [value]);
+  }, [value, docId]);
 
-  const handleChange = useCallback(
-    (val: string) => {
-      if (!isReadOnly) {
-        onChange(val);
-      }
-    },
-    [onChange, isReadOnly]
-  );
+  const handleChange = (val: string) => {
+    if (!isReadOnly) {
+      onChange(val);
+    }
+  };
 
-  const handleToggleReadOnly = useCallback(() => {
+  const handleToggleReadOnly = () => {
     setIsReadOnly((prev) => !prev);
-  }, []);
+  };
 
-  const handleExport = useCallback(() => {
+  const handleExport = () => {
     if (onExport) {
       onExport();
     } else {
@@ -107,66 +106,60 @@ export const MarkdownEditor = memo(function MarkdownEditor({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }
-  }, [value, onExport]);
+  };
 
-  const handleSplit = useCallback(() => {
+  const handleSplit = () => {
     if (onSplit) {
       onSplit();
     } else {
       console.log('Split document functionality - to be implemented');
     }
-  }, [onSplit]);
+  };
 
   // Drag Interceptor for OPFS
-  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-  }, []);
+  };
 
-  const handleDrop = useCallback(
-    async (e: React.DragEvent<HTMLDivElement>) => {
-      const files = e.dataTransfer.files;
-      if (files && files.length > 0) {
-        let textToInsert = '';
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          if (file.type.startsWith('image/')) {
-            e.preventDefault();
-            const markdown = await processImageFile(file);
-            textToInsert += markdown;
-          }
-        }
-        if (textToInsert) {
-          onChange(value + textToInsert);
-          toast.success('Stored asset to sandboxed OPFS bucket!');
-        }
-      }
-    },
-    [value, onChange]
-  );
-
-  // Paste Interceptor for OPFS
-  const handlePaste = useCallback(
-    async (e: React.ClipboardEvent<HTMLDivElement>) => {
-      const items = e.clipboardData.items;
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
       let textToInsert = '';
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (item.type.startsWith('image/')) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type.startsWith('image/')) {
           e.preventDefault();
-          const file = item.getAsFile();
-          if (file) {
-            const markdown = await processImageFile(file, 'pasted_image.png');
-            textToInsert += markdown;
-          }
+          const markdown = await processImageFile(file);
+          textToInsert += markdown;
         }
       }
       if (textToInsert) {
         onChange(value + textToInsert);
-        toast.success('Pasted asset written to OPFS storage!');
+        toast.success('Stored asset to sandboxed OPFS bucket!');
       }
-    },
-    [value, onChange]
-  );
+    }
+  };
+
+  // Paste Interceptor for OPFS
+  const handlePaste = async (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const items = e.clipboardData.items;
+    let textToInsert = '';
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          const markdown = await processImageFile(file, 'pasted_image.png');
+          textToInsert += markdown;
+        }
+      }
+    }
+    if (textToInsert) {
+      onChange(value + textToInsert);
+      toast.success('Pasted asset written to OPFS storage!');
+    }
+  };
 
   const defaultExtensions: Extension[] = [
     markdown(),
@@ -175,10 +168,8 @@ export const MarkdownEditor = memo(function MarkdownEditor({
     ...extensions,
   ];
 
-  const shouldShowWarning = useMemo(() => {
-    const percentage = value.length / DOCUMENT.MAX_DOCUMENT_SIZE;
-    return percentage >= DOCUMENT.WARNING_THRESHOLD;
-  }, [value]);
+  const percentage = value.length / DOCUMENT.MAX_DOCUMENT_SIZE;
+  const shouldShowWarning = percentage >= DOCUMENT.WARNING_THRESHOLD;
 
   const assetUrls = Object.keys(resolvedAssets);
 
@@ -260,4 +251,4 @@ export const MarkdownEditor = memo(function MarkdownEditor({
       )}
     </div>
   );
-}, arePropsEqual);
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useUiStore } from '@/stores/ui-store';
 import { useEditorStore, type EditorState } from '@/stores/editor-store';
@@ -6,7 +6,9 @@ import { usePopupStore } from '@/stores/popup-store';
 import { useEntityGraphStore } from '@/stores/entity-graph-store';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/dexie';
+import { documentParseService } from '@/services/document-parse-service';
 import { parserService } from '@/services/parser-service';
+import { useSaveQueue } from '@/hooks/useSaveQueue';
 import { EditorSidebar } from './EditorSidebar';
 import { MarkdownEditor } from './components/MarkdownEditor';
 import { EditorRightPane } from './components/EditorRightPane';
@@ -45,78 +47,40 @@ export function EditorPage({
   const [showSplitter, setShowSplitter] = useState(false);
   const [isContextPanelOpen, setIsContextPanelOpen] = useState(false);
 
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  /**
-   * 🌟 【Save Gate 绝对闭环设计】
-   * 只有在输入停顿 500ms 后才触发关系写盘，保护编辑器的极致性能
-   */
-  const handleEditorChange = useCallback(
-    (newText: string) => {
-      setDocumentText(newText);
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-
-      saveTimeoutRef.current = setTimeout(async () => {
-        // 1. 真相写盘
-        await db.documents.update(mainWikiId, {
-          content: newText,
-          updatedAt: Date.now(),
-        });
-
-        // 2. 清除特定内存缓存
-        parserService.invalidate(mainWikiId);
-
-        // 3. 执行单向增量解析提取（带位置）
-        const { nodes, locatedWikiLinks, locatedTags } = parserService.parseMarkdownWithLocation(
-          mainWikiId,
-          newText
-        );
-
-        // 4. 将提取出的实体立刻同步至 Reactive Entity Graph 触发 UI 响应
-        registerNodesToGraph(nodes);
-
-        // 5. 写入多表事务索引
-        await db.transaction('rw', [db.semanticNodes, db.links, db.tags], async () => {
-          await db.semanticNodes.where('docId').equals(mainWikiId).delete();
-          if (nodes.length > 0) {
-            await db.semanticNodes.bulkAdd(nodes);
-          }
-
-          await db.links.where('sourceId').equals(mainWikiId).delete();
-          const linkEntities = locatedWikiLinks.map((link) => ({
-            sourceId: mainWikiId,
-            targetId: link.targetId,
-            start: link.start,
-            end: link.end,
-          }));
-          if (linkEntities.length > 0) {
-            await db.links.bulkAdd(linkEntities);
-          }
-
-          await db.tags.where('docId').equals(mainWikiId).delete();
-          const tagEntities = locatedTags.map((t) => ({
-            docId: mainWikiId,
-            tag: t.tag,
-            start: t.start,
-            end: t.end,
-          }));
-          if (tagEntities.length > 0) {
-            await db.tags.bulkAdd(tagEntities);
-          }
-        });
-
-        markAsSaved();
-      }, 500);
+  const { enqueueSave, flush } = useSaveQueue({
+    debounceMs: 500,
+    onSave: (docId, content) => {
+      documentParseService.triggerParse(docId, content);
+      markAsSaved();
     },
-    [mainWikiId, setDocumentText, markAsSaved, registerNodesToGraph]
-  );
+    onError: (docId, error) => {
+      console.error('Failed to save document:', docId, error);
+      toast.error('Failed to save document');
+    },
+  });
 
-  /**
-   * 处理编辑器更新事件，用于增量解析（本示例暂时保持使用延迟保存的全量解析，避免过早优化导致的复杂性）
-   */
-  const handleEditorUpdate = useCallback((_update: unknown) => {
-    // 目前我们保持使用延迟保存的全量解析，以确保稳定性
-  }, []);
+  useEffect(() => {
+    const unregister = documentParseService.addListener((docId, content) => {
+      const { nodes } = parserService.parseMarkdown(docId, content);
+      registerNodesToGraph(nodes);
+    });
+
+    return unregister;
+  }, [registerNodesToGraph]);
+
+  useEffect(() => {
+    return () => {
+      flush();
+    };
+  }, [flush]);
+
+  const handleEditorChange = (newText: string) => {
+    setDocumentText(newText);
+    enqueueSave(mainWikiId, newText);
+  };
+
+  const handleEditorUpdate = (_update: unknown) => {
+  };
 
   useEffect(() => {
     if (mainDocument) {
@@ -125,54 +89,51 @@ export function EditorPage({
     }
   }, [mainDocument, setDocumentText]);
 
-  const handleLinkEvent = useCallback(
-    (ev: { type: string; target: string; element?: HTMLElement }) => {
-      if (ev.type === 'link-hover' && ev.element) {
-        setHoveredLink(ev.element, ev.target);
-      } else if (ev.type === 'link-leave') {
-        setHoveredLink(null, null);
-      } else if (ev.type === 'link-click') {
-        useUiStore.getState().setCurrentWikiId(ev.target);
-      }
-    },
-    [setHoveredLink]
-  );
+  const handleLinkEvent = (ev: { type: string; target: string; element?: HTMLElement }) => {
+    if (ev.type === 'link-hover' && ev.element) {
+      setHoveredLink(ev.element, ev.target);
+    } else if (ev.type === 'link-leave') {
+      setHoveredLink(null, null);
+    } else if (ev.type === 'link-click') {
+      useUiStore.getState().setCurrentWikiId(ev.target);
+    }
+  };
 
-  const handleExport = useCallback(async () => {
+  const handleExport = async () => {
     try {
       await exportService.triggerDownload(mainWikiId);
       toast.success('Metadata aggregated! Saved as frontmatter Markdown.');
     } catch {
       toast.error('Failed to aggregate and export node YAML metadata.');
     }
-  }, [mainWikiId]);
+  };
 
-  const handleSplit = useCallback(() => {
+  const handleSplit = () => {
     setShowSplitter(true);
-  }, []);
+  };
 
-  const handleSplitConfirm = useCallback(
-    async (sections: Array<{ id: string; title: string; content: string }>) => {
-      for (const section of sections) {
-        const docId = `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        await db.documents.add({
-          id: docId,
-          title: section.title,
-          content: section.content,
-          badge: 'Split',
-          badgeClass: 'tag-badge-green',
-          updatedAt: Date.now(),
-        });
-      }
-      setShowSplitter(false);
-    },
-    []
-  );
+  const handleSplitConfirm = async (sections: Array<{ id: string; title: string; content: string }>) => {
+    for (const section of sections) {
+      const docId = `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      await db.documents.add({
+        id: docId,
+        title: section.title,
+        content: section.content,
+        badge: 'Split',
+        badgeClass: 'tag-badge-green',
+        updatedAt: Date.now(),
+      });
+    }
+    setShowSplitter(false);
+  };
 
   const editorExtensions = [wysiwygLinkExtension(handleLinkEvent)];
 
   return (
     <div className="flex-1 flex overflow-hidden h-full relative">
+      <title>{mainDocument?.title ? `${mainDocument.title} - Axiom` : 'Editor - Axiom'}</title>
+      <meta name="theme-color" content={isZenMode ? '#000000' : '#ffffff'} />
+
       <div className="flex-1 flex flex-col h-full bg-transparent overflow-hidden">
         <header className="h-14 px-8 border-b border-black/5 flex items-center justify-between shrink-0 bg-white/40 backdrop-blur-xl">
           <div className="flex items-center gap-2">

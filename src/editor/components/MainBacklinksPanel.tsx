@@ -5,6 +5,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/dexie';
 import { useUiStore } from '@/stores/ui-store';
 import { Link2, Network, FileText, ChevronRight } from 'lucide-react';
+import { SafeText } from '@/components/SafeText';
+import type { DocumentEntity, PropertyEntity } from '@/types';
 
 interface MainBacklinksPanelProps {
   docId: string;
@@ -25,16 +27,52 @@ export function MainBacklinksPanel({ docId }: MainBacklinksPanelProps) {
     [docId]
   );
 
-  // 3. Load all documents to retrieve the titles and metadata of referring sources
-  const documents = useLiveQuery(() => db.documents.toArray(), []);
-  const properties = useLiveQuery(() => db.properties.toArray(), []);
+  // 3. Only fetch the specific documents we need instead of all documents
+  const sourceDocIds = [
+    ...(inlineLinks || []).map((l) => l.sourceId),
+    ...(structuralRelations || []).map((r) => r.sourceId),
+  ];
+
+  const sourceDocuments = useLiveQuery(async () => {
+    if (sourceDocIds.length === 0) return [];
+    const uniqueIds = [...new Set(sourceDocIds)];
+    // Bulk get by ids for better performance
+    const docs = await Promise.all(uniqueIds.map((id) => db.documents.get(id)));
+    return docs.filter(Boolean) as DocumentEntity[];
+  }, [sourceDocIds]);
+
+  // Only fetch the specific properties we need
+  const propIds = (structuralRelations || []).map((r) => r.propId);
+  const relevantProperties = useLiveQuery(async () => {
+    if (propIds.length === 0) return [];
+    const uniquePropIds = [...new Set(propIds)];
+    const props = await Promise.all(uniquePropIds.map((id) => db.properties.get(id)));
+    return props.filter(Boolean) as PropertyEntity[];
+  }, [propIds]);
 
   if (!docId) return null;
+
+  // Create quick lookup maps
+  const docMap = (sourceDocuments || []).reduce(
+    (map, doc) => {
+      map[doc.id] = doc;
+      return map;
+    },
+    {} as Record<string, DocumentEntity>
+  );
+
+  const propMap = (relevantProperties || []).reduce(
+    (map, prop) => {
+      map[prop.id] = prop;
+      return map;
+    },
+    {} as Record<string, PropertyEntity>
+  );
 
   // Build list of valid inline backlinks with document metadata
   const inlineBacklinks = (inlineLinks || [])
     .map((link) => {
-      const sourceDoc = documents?.find((d) => d.id === link.sourceId);
+      const sourceDoc = docMap[link.sourceId];
       return sourceDoc
         ? { id: sourceDoc.id, title: sourceDoc.title, typeId: sourceDoc.typeId }
         : null;
@@ -44,8 +82,8 @@ export function MainBacklinksPanel({ docId }: MainBacklinksPanelProps) {
   // Build list of valid structural back-relations with property mappings
   const structuralBacklinks = (structuralRelations || [])
     .map((rel) => {
-      const sourceDoc = documents?.find((d) => d.id === rel.sourceId);
-      const prop = properties?.find((p) => p.id === rel.propId);
+      const sourceDoc = docMap[rel.sourceId];
+      const prop = propMap[rel.propId];
       return sourceDoc && prop
         ? {
             id: sourceDoc.id,
@@ -89,7 +127,9 @@ export function MainBacklinksPanel({ docId }: MainBacklinksPanelProps) {
                   >
                     <div className="flex items-center gap-2 truncate">
                       <FileText className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                      <span className="truncate">{link.title}</span>
+                      <span className="truncate">
+                        <SafeText content={link.title} />
+                      </span>
                     </div>
                     <div className="flex items-center gap-1 shrink-0 ml-2">
                       <span className="font-mono text-[8px] uppercase tracking-wider px-1.5 py-0.5 bg-neutral-100 rounded text-neutral-400 font-bold">
@@ -122,7 +162,9 @@ export function MainBacklinksPanel({ docId }: MainBacklinksPanelProps) {
                   >
                     <div className="flex items-center gap-2 truncate">
                       <FileText className="w-3.5 h-3.5 text-amber-500/80 shrink-0" />
-                      <span className="truncate">{rel.title}</span>
+                      <span className="truncate">
+                        <SafeText content={rel.title} />
+                      </span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
                       <span className="font-mono text-[8px] text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded font-bold">

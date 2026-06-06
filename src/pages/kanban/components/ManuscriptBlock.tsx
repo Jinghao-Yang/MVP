@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import type React from 'react';
 
 interface PipelineCard {
   id: string;
@@ -14,14 +14,13 @@ interface PipelineCard {
 interface ManuscriptBlockProps {
   card: PipelineCard;
   isDragging?: boolean;
+  ref?: React.Ref<HTMLDivElement>;
 }
 
-export const ManuscriptBlock = memo(function ManuscriptBlock({
-  card,
-  isDragging,
-}: ManuscriptBlockProps) {
+export function ManuscriptBlock({ card, isDragging, ref }: ManuscriptBlockProps) {
   return (
     <div
+      ref={ref}
       className={`px-5 py-6 border-b border-neutral-200/50 bg-[var(--bg-canvas)] transition-all cursor-grab relative
       ${isDragging ? 'shadow-xl opacity-90 scale-[1.01] z-50' : 'hover:bg-white'}`}
     >
@@ -35,4 +34,4 @@ export const ManuscriptBlock = memo(function ManuscriptBlock({
       <p className="font-human text-[14.5px] text-neutral-700 leading-relaxed">{card.excerpt}</p>
     </div>
   );
-});
+}

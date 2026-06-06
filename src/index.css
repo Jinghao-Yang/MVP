@@ -139,6 +139,12 @@ body.font-size-large {
   background: rgba(255,255,255,0.7);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(0,0,0,0.05);
+  
+  /* 暗色模式支持 */
+  &:where(.theme-dark *) {
+    background: rgba(18, 18, 16, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
 }
 
 @utility spring-click {
@@ -152,11 +158,6 @@ body.font-size-large {
     @apply translate-y-0.5 scale-[0.96];
     transition: transform 0.15s ease;
   }
-}
-
-@utility column-synthesis {
-  background: linear-gradient(180deg, rgba(112, 138, 116, 0.04) 0%, rgba(112, 138, 116, 0.01) 100%) !important;
-  border-top: 3px solid var(--bh-green) !important;
 }
 
 .sidebar {

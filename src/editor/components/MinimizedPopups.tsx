@@ -1,7 +1,6 @@
 /* ================================================
    FILE: src/editor/components/MinimizedPopups.tsx
    ================================================ */
-import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { PopupData } from '@/types';
 import { usePopupStore, type PopupState } from '@/stores/popup-store';
@@ -16,9 +15,7 @@ export function MinimizedPopups() {
     }))
   );
 
-  const minimizedPopups = useMemo(() => {
-    return popups.filter((p: PopupData) => p.isMinimized);
-  }, [popups]);
+  const minimizedPopups = popups.filter((p: PopupData) => p.isMinimized);
 
   return (
     <>

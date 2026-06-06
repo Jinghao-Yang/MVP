@@ -32,11 +32,11 @@ export function DraggableItem({ card, isTerminal }: DraggableItemProps) {
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes} className="outline-none">
+    <div style={style} {...listeners} {...attributes} className="outline-none">
       {isTerminal ? (
-        <ManuscriptBlock card={card} isDragging={isDragging} />
+        <ManuscriptBlock card={card} isDragging={isDragging} ref={setNodeRef} />
       ) : (
-        <IndexCard card={card} isDragging={isDragging} />
+        <IndexCard card={card} isDragging={isDragging} ref={setNodeRef} />
       )}
     </div>
   );

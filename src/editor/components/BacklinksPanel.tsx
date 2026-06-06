@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link2 } from 'lucide-react';
 import { documentService } from '@/services/document-service';
 import { showErrorToast } from '@/utils/error-handler';
+import { SafeText } from '@/components/SafeText';
 
 interface BacklinksPanelProps {
   wikiId: string;
@@ -47,7 +48,7 @@ export function BacklinksPanel({ wikiId, onLinkClick }: BacklinksPanelProps) {
               onClick={() => handleLinkClick(linkId)}
               className="px-2.5 py-1.5 bg-neutral-100 hover:bg-neutral-200/80 border border-neutral-200/50 rounded-lg text-xs font-sys font-medium text-neutral-700 cursor-pointer transition-colors"
             >
-              {linkId === 'main-editor-doc' ? 'Topology Math (Main)' : linkId}
+              <SafeText content={linkId === 'main-editor-doc' ? 'Topology Math (Main)' : linkId} />
             </button>
           ))}
         </div>

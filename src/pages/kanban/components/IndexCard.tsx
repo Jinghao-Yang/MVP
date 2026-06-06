@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import type React from 'react';
 
 interface PipelineCard {
   id: string;
@@ -14,11 +14,13 @@ interface PipelineCard {
 interface IndexCardProps {
   card: PipelineCard;
   isDragging?: boolean;
+  ref?: React.Ref<HTMLDivElement>;
 }
 
-export const IndexCard = memo(function IndexCard({ card, isDragging }: IndexCardProps) {
+export function IndexCard({ card, isDragging, ref }: IndexCardProps) {
   return (
     <div
+      ref={ref}
       className={`p-4 border-b border-neutral-200/70 bg-white transition-all duration-200 cursor-grab group
       ${isDragging ? 'shadow-2xl ring-1 ring-black/10 opacity-95 scale-[1.02] rotate-1 z-50' : 'hover:bg-neutral-50'}`}
     >
@@ -74,4 +76,4 @@ export const IndexCard = memo(function IndexCard({ card, isDragging }: IndexCard
       </div>
     </div>
   );
-});
+}

@@ -6,7 +6,18 @@ const blobUrlCache = new Map<string, string>();
 
 export const assetService = {
   /**
-   * Save a file into the OPFS and register it in Dexie
+   * 保存资源文件到 OPFS 并在 Dexie 中注册
+   * 将文件存储到浏览器文件系统并返回 axiom:// 协议 URL
+   *
+   * @param file - 要保存的文件对象
+   * @returns axiom://asset/UUID 格式的资源 URL
+   *
+   * @remarks
+   * - 使用 OPFS（Origin Private File System）存储文件
+   * - 自动生成 UUID 作为资源标识
+   * - 同时在 Dexie 中注册资源元数据
+   * - 如果 OPFS 写入失败，会回退到 Dexie 附件模式
+   * - 写入成功后会缓存 Blob URL 以提高访问速度
    */
   async saveAsset(file: File): Promise<string> {
     const uuid = `asset-${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11)}`;
@@ -60,7 +71,17 @@ export const assetService = {
   },
 
   /**
-   * Resolves an axiom://asset/UUID url into a standard renderable blob URL
+   * 解析 axiom://asset/UUID URL 为可渲染的 Blob URL
+   * 用于在页面中显示资源（如图片）
+   *
+   * @param assetUrl - axiom://asset/UUID 格式的资源 URL
+   * @returns 可直接用于 img.src 等的 Blob URL，资源不存在时返回空白 GIF 占位图
+   *
+   * @remarks
+   * - 优先从内存缓存获取，避免重复读取磁盘
+   * - 缓存未命中时从 OPFS 读取文件
+   * - 读取失败时返回 1x1 透明 GIF 占位图
+   * - 非 axiom://asset/ 格式的 URL 直接返回原值
    */
   async resolveAssetUrl(assetUrl: string): Promise<string> {
     if (!assetUrl.startsWith('axiom://asset/')) return assetUrl;
@@ -87,7 +108,14 @@ export const assetService = {
   },
 
   /**
-   * Cleanup resource allocations on module unmount
+   * 释放指定资源的 Blob URL
+   * 从内存缓存中移除并释放 Blob URL 引用
+   *
+   * @param uuid - 资源的 UUID（不含 axiom://asset/ 前缀）
+   *
+   * @remarks
+   * - 调用 URL.revokeObjectURL 释放内存
+   * - 应在资源不再使用时调用以避免内存泄漏
    */
   revokeUrl(uuid: string) {
     const url = blobUrlCache.get(uuid);
@@ -97,6 +125,14 @@ export const assetService = {
     }
   },
 
+  /**
+   * 清空所有资源的 Blob URL 缓存
+   * 释放所有缓存的 Blob URL 引用并清空缓存映射
+   *
+   * @remarks
+   * - 应在应用卸载或需要完全清理资源时调用
+   * - 会遍历所有缓存项并调用 URL.revokeObjectURL
+   */
   clearAllCaches() {
     for (const [_, url] of blobUrlCache.entries()) {
       URL.revokeObjectURL(url);

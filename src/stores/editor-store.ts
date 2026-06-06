@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { documentService } from '@/services/document-service';
-import { showErrorToast } from '@/utils/error-handler';
+import { showErrorToast, setUnsavedChanges } from '@/utils/error-handler';
 
 export interface EditorState {
   /** 当前文档文本 */
@@ -29,10 +29,12 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
 
   setDocumentText: (text) => {
     const originalText = get().originalDocumentText;
+    const isDirty = text !== originalText;
     set({
       documentText: text,
-      isDirty: text !== originalText,
+      isDirty,
     });
+    setUnsavedChanges(isDirty);
   },
 
   resetDocumentText: () => {
@@ -41,6 +43,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       documentText: originalText,
       isDirty: false,
     });
+    setUnsavedChanges(false);
   },
 
   markAsSaved: () => {
@@ -49,6 +52,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       originalDocumentText: currentText,
       isDirty: false,
     });
+    setUnsavedChanges(false);
   },
 
   loadDocumentText: async (documentId) => {
@@ -60,6 +64,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
           originalDocumentText: doc.content,
           isDirty: false,
         });
+        setUnsavedChanges(false);
       }
     } catch {
       showErrorToast('Failed to load document');
@@ -72,5 +77,6 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       originalDocumentText: '',
       isDirty: false,
     });
+    setUnsavedChanges(false);
   },
 }));

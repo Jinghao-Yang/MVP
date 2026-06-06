@@ -10,7 +10,7 @@ interface EditorContentProps {
   onLinkHover: (
     e: React.MouseEvent<HTMLSpanElement, MouseEvent>,
     wikiId: string,
-    depth: number
+    stackIndex: number
   ) => void;
   onLinkLeave: (wikiId: string) => void;
 }

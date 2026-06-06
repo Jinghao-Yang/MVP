@@ -16,7 +16,7 @@ export function usePopover(setStatus: (msg: string) => void) {
   }, []);
 
   const handleMouseEnter = useCallback(
-    (e: React.MouseEvent<HTMLSpanElement, MouseEvent>, wikiId: string, depth = 0) => {
+    (e: React.MouseEvent<HTMLSpanElement, MouseEvent>, wikiId: string, stackIndex = 0) => {
       if (isUserDraggingOrResizing.current) return;
 
       const closeTimerKey = `close-${wikiId}`;
@@ -57,11 +57,14 @@ export function usePopover(setStatus: (msg: string) => void) {
             y: adjustedY,
             width: defaultWidth,
             height: defaultHeight,
-            depth: depth + 1,
+            stackIndex: stackIndex + 1,
             isPinned: false,
             isMinimized: false,
           };
-          setPopups((prev) => [...prev.filter((p) => p.isPinned || p.depth <= depth), newPopup]);
+          setPopups((prev) => [
+            ...prev.filter((p) => p.isPinned || p.stackIndex <= stackIndex),
+            newPopup,
+          ]);
           setStatus(`Rendered Popover: ${data.title}`);
         }
       }, 750);

@@ -18,6 +18,20 @@ interface ConfigEntity {
   schemaVersion: number;
 }
 
+/**
+ * Migration function type
+ */
+type MigrationFunction = (db: AxiomDatabase) => Promise<void>;
+
+/**
+ * Migration definition
+ */
+interface Migration {
+  version: number;
+  description: string;
+  migrate: MigrationFunction;
+}
+
 const SEED_DOCUMENTS: Omit<DocumentEntity, 'updatedAt'>[] = [
   {
     id: 'main-editor-doc',
@@ -179,6 +193,40 @@ const SEED_LINKS: Omit<BidirectionalLinkEntity, 'id'>[] = [
   { sourceId: 'topology-basics', targetId: 'john-doe', start: 0, end: 1 },
 ];
 
+/**
+ * Migration registry
+ * Add new migrations here when schema changes
+ */
+const MIGRATIONS: Migration[] = [
+  {
+    version: 5,
+    description: 'Add position tracking (start, end) for links and tags',
+    migrate: async (db: AxiomDatabase) => {
+      // Migrate links: add default start and end positions
+      const links = await db.links.toArray();
+      for (const link of links) {
+        if (link.start === undefined || link.end === undefined) {
+          await db.links.update(link, {
+            start: link.start ?? 0,
+            end: link.end ?? 1,
+          });
+        }
+      }
+
+      // Migrate tags: add default start and end positions
+      const tags = await db.tags.toArray();
+      for (const tag of tags) {
+        if (tag.start === undefined || tag.end === undefined) {
+          await db.tags.update(tag, {
+            start: tag.start ?? 0,
+            end: tag.end ?? 1,
+          });
+        }
+      }
+    },
+  },
+];
+
 class AxiomDatabase extends Dexie {
   documents!: Table<DocumentEntity>;
   kanbanCards!: Table<KanbanCardEntity>;
@@ -253,29 +301,69 @@ class AxiomDatabase extends Dexie {
 
 export const db = new AxiomDatabase();
 
+/**
+ * Run migrations from current version to target version
+ */
+async function runMigrations(currentVersion: number, targetVersion: number): Promise<void> {
+  const migrationsToRun = MIGRATIONS.filter(
+    (m) => m.version > currentVersion && m.version <= targetVersion
+  ).sort((a, b) => a.version - b.version);
+
+  for (const migration of migrationsToRun) {
+    console.log(`Running migration v${migration.version}: ${migration.description}`);
+    await migration.migrate(db);
+    await db.config.put({ id: 'app-config', schemaVersion: migration.version });
+    console.log(`Migration v${migration.version} completed`);
+  }
+}
+
 export async function seedDatabase() {
   try {
     await db.open();
   } catch (err) {
-    console.warn('Dexie open failed, likely due to schema changes. Resetting database...', err);
-    try {
-      await db.delete();
-      await db.open();
-    } catch (deleteErr) {
-      console.error('Failed to reset Dexie database:', deleteErr);
-    }
+    console.error('Failed to open database:', err);
+    throw err;
   }
 
   const currentConfig = await db.config.get('app-config');
   const currentSchemaVersion = currentConfig?.schemaVersion ?? 0;
   const TARGET_VERSION = 5;
 
-  if (currentSchemaVersion >= TARGET_VERSION) {
-    await ensureSeedDocuments();
-    await ensureTaskObjectType();
-    return;
+  // Run migrations if needed
+  if (currentSchemaVersion < TARGET_VERSION) {
+    await db.transaction(
+      'rw',
+      [
+        db.documents,
+        db.kanbanCards,
+        db.links,
+        db.config,
+        db.objectTypes,
+        db.properties,
+        db.docProperties,
+        db.relations,
+        db.tags,
+      ],
+      async () => {
+        await runMigrations(currentSchemaVersion, TARGET_VERSION);
+      }
+    );
   }
 
+  // Conditional initialization for new databases
+  if (currentSchemaVersion === 0) {
+    await initializeDatabase();
+  } else {
+    // Ensure seed data exists even for migrated databases
+    await ensureSeedDocuments();
+    await ensureTaskObjectType();
+  }
+}
+
+/**
+ * Initialize a new database with seed data
+ */
+async function initializeDatabase(): Promise<void> {
   await db.transaction(
     'rw',
     [
@@ -290,7 +378,7 @@ export async function seedDatabase() {
       db.tags,
     ],
     async () => {
-      // 1. Seed Object Types if empty
+      // 1. Seed Object Types
       await db.objectTypes.bulkPut([
         { id: 'page', name: 'Page' },
         { id: 'note', name: 'Notes' },
@@ -300,7 +388,7 @@ export async function seedDatabase() {
         { id: 'task', name: 'Task' },
       ]);
 
-      // 2. Seed Properties if empty
+      // 2. Seed Properties
       await db.properties.bulkPut([
         // Page properties
         { id: 'prop-page-status', typeId: 'page', name: 'Status', dataType: 'text' },
@@ -325,7 +413,7 @@ export async function seedDatabase() {
       await ensureSeedKanbanCards();
       await ensureSeedLinks();
 
-      // 3. Seed some default doc properties for our demo entities
+      // 3. Seed default doc properties
       await db.docProperties.bulkPut([
         { docId: 'john-doe', propId: 'prop-person-email', value: 'john@topologylabs.com' },
         { docId: 'john-doe', propId: 'prop-person-company', value: 'Topology Labs' },
@@ -346,7 +434,7 @@ export async function seedDatabase() {
         { sourceId: 'topology-basics', propId: 'prop-book-author', targetId: 'john-doe' },
       ]);
 
-      await db.config.put({ id: 'app-config', schemaVersion: TARGET_VERSION });
+      await db.config.put({ id: 'app-config', schemaVersion: 5 });
     }
   );
 }

@@ -1,7 +1,6 @@
 /* ================================================
    FILE: src/editor/components/DocumentStats.tsx
    ================================================ */
-import { useMemo } from 'react';
 import { FileText, AlertTriangle, Download, Split, Lock } from 'lucide-react';
 
 interface DocumentStatsProps {
@@ -33,25 +32,23 @@ export function DocumentStats({
   onToggleReadOnly,
   isReadOnly = false,
 }: DocumentStatsProps) {
-  const stats: DocumentStatistics = useMemo(() => {
-    const characters = content.length;
-    const words = content.trim() ? content.trim().split(/\s+/).length : 0;
-    const lines = content.split('\n').length;
-    const bytes = new Blob([content]).size;
-    const percentage = (characters / maxSize) * 100;
-    const isWarning = percentage >= warningThreshold * 100 && percentage < 100;
-    const isExceeded = percentage >= 100;
+  const characters = content.length;
+  const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+  const lines = content.split('\n').length;
+  const bytes = new Blob([content]).size;
+  const percentage = (characters / maxSize) * 100;
+  const isWarning = percentage >= warningThreshold * 100 && percentage < 100;
+  const isExceeded = percentage >= 100;
 
-    return {
-      characters,
-      words,
-      lines,
-      bytes,
-      percentage,
-      isWarning,
-      isExceeded,
-    };
-  }, [content, maxSize, warningThreshold]);
+  const stats: DocumentStatistics = {
+    characters,
+    words,
+    lines,
+    bytes,
+    percentage,
+    isWarning,
+    isExceeded,
+  };
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B';

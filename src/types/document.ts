@@ -4,6 +4,19 @@
  */
 
 /**
+ * Property value types for semantic node metadata
+ * Supports primitive types, arrays, and nested objects
+ */
+export type PropertyValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | PropertyValue[]
+  | { [key: string]: PropertyValue };
+
+/**
  * Semantic node index (no content, no offset)
  * It is merely a stable pointer to a specific file and metadata cache
  */
@@ -12,7 +25,7 @@ export interface SemanticNode {
   docId: string; // ID of the parent Document
   type: string; // User-defined type (e.g., 'theorem', 'person', 'definition')
   title: string; // Node title for quick list rendering
-  properties: Record<string, unknown>; // Flat metadata, e.g., { status: 'evergreen' }
+  properties: Record<string, PropertyValue>; // Flat metadata, e.g., { status: 'evergreen' }
   references: string[]; // 100% stable UUID array, never broken
 }
 

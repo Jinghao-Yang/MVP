@@ -13,6 +13,7 @@ import { useSettingsStore } from '@/stores/settings-store';
 import { useShallow } from 'zustand/react/shallow';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useWorkspaceInit } from '@/hooks/useWorkspaceInit';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 import { Toaster, toast } from 'sonner';
 import { useHotkeys } from 'react-hotkeys-hook';
 
@@ -47,6 +48,7 @@ function AppContent() {
 
   const isCommandPaletteOpen = useUiStore((state: UiState) => state.isCommandPaletteOpen);
   const initializeWorkspace = useWorkspaceInit();
+  const { hasUnhandledErrors: _hasUnhandledErrors } = useErrorHandler();
 
   useEffect(() => {
     initializeWorkspace();

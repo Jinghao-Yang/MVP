@@ -5,6 +5,7 @@ import parserTypeScript from '@typescript-eslint/parser';
 import pluginPrettier from 'eslint-plugin-prettier';
 import configPrettier from 'eslint-config-prettier';
 import pluginUnusedImports from 'eslint-plugin-unused-imports';
+import compiler from 'eslint-plugin-react-compiler';
 
 export default [
   {
@@ -27,6 +28,7 @@ export default [
       '@typescript-eslint': pluginTypeScript,
       prettier: pluginPrettier,
       'unused-imports': pluginUnusedImports,
+      'react-compiler': compiler,
     },
     rules: {
       'prettier/prettier': 'error',
@@ -45,6 +47,7 @@ export default [
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
       'react/no-unescaped-entities': 'off',
+      'react-compiler/react-compiler': 'error',
     },
   },
   configPrettier,

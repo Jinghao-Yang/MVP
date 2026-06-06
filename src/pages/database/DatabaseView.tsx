@@ -1,7 +1,7 @@
 /* ================================================
    FILE: src/pages/database/DatabaseView.tsx
    ================================================ */
-import { useRef, useState, useMemo, useEffect } from 'react';
+import { useRef, useState, useMemo, use, Suspense } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/dexie';
 import { motion, AnimatePresence } from 'motion/react';
@@ -958,6 +958,20 @@ export function DatabaseView({ openPage }: DatabaseViewProps) {
   );
 }
 
+function AssetImg({ rawUrl, onClick }: { rawUrl: string; onClick: () => void }) {
+  const resolvedSrc = use(assetService.resolveAssetUrl(rawUrl));
+
+  return (
+    <img
+      src={resolvedSrc}
+      alt="Asset"
+      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500 cursor-pointer"
+      referrerPolicy="no-referrer"
+      onClick={onClick}
+    />
+  );
+}
+
 function GalleryAttachmentCard({
   doc,
   setMainWikiId,
@@ -967,26 +981,12 @@ function GalleryAttachmentCard({
   setMainWikiId: (id: string) => void;
   openPage: (p: string) => void;
 }) {
-  const [resolvedSrc, setResolvedSrc] = useState<string>('');
-
   const firstRawUrl = useMemo(() => {
     if (!doc.content) return null;
     const regex = /axiom:\/\/asset\/[a-zA-Z0-9-]+/g;
     const matches = doc.content.match(regex);
     return matches ? matches[0] : null;
   }, [doc.content]);
-
-  useEffect(() => {
-    let active = true;
-    if (firstRawUrl) {
-      assetService.resolveAssetUrl(firstRawUrl).then((url) => {
-        if (active) setResolvedSrc(url);
-      });
-    }
-    return () => {
-      active = false;
-    };
-  }, [firstRawUrl]);
 
   const docExcerpt = useMemo(() => {
     if (!doc.content) return 'Empty canvas note...';
@@ -1002,24 +1002,31 @@ function GalleryAttachmentCard({
     <div className="group border border-neutral-200 bg-white hover:border-neutral-400 rounded-none overflow-hidden shadow-sm hover:shadow transition-all duration-300 flex flex-col h-[320px] relative">
       {/* Aspect-video top covered image */}
       <div className="h-[160px] w-full bg-neutral-50 overflow-hidden relative border-b border-neutral-100">
-        {resolvedSrc ? (
-          <img
-            src={resolvedSrc}
-            alt={doc.title || 'Attached Asset'}
-            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500 cursor-pointer"
-            referrerPolicy="no-referrer"
-            onClick={() => {
-              setMainWikiId(doc.id);
-              openPage('editor');
-            }}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-neutral-50">
-            <span className="font-mono text-[9px] uppercase font-bold text-neutral-400 tracking-widest animate-pulse">
-              Compiling...
-            </span>
-          </div>
-        )}
+        <Suspense
+          fallback={
+            <div className="w-full h-full flex items-center justify-center bg-neutral-50">
+              <span className="font-mono text-[9px] uppercase font-bold text-neutral-400 tracking-widest animate-pulse">
+                Compiling...
+              </span>
+            </div>
+          }
+        >
+          {firstRawUrl ? (
+            <AssetImg
+              rawUrl={firstRawUrl}
+              onClick={() => {
+                setMainWikiId(doc.id);
+                openPage('editor');
+              }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-neutral-50">
+              <span className="font-mono text-[9px] uppercase font-bold text-neutral-400 tracking-widest">
+                No Asset
+              </span>
+            </div>
+          )}
+        </Suspense>
         {/* Type overlay badge */}
         <span className="absolute top-3 right-3 font-mono text-[8px] uppercase tracking-wider font-bold bg-white/95 border border-neutral-200 text-neutral-500 px-1.5 py-0.5 rounded shadow-sm">
           {doc.typeId || 'draft'}

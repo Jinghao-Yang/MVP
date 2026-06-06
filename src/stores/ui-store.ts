@@ -166,7 +166,7 @@ export const useUiStore = create<UiState>()(
       partialize: (state) => ({
         activePage: state.activePage,
         isSidebarPinned: state.isSidebarPinned,
-        isZenMode: state.isZenMode,
+        // isZenMode 不持久化 - 禅模式是临时专注状态，重启后不应自动进入
         mainWikiId: state.mainWikiId,
         currentWikiId: state.currentWikiId,
       }),

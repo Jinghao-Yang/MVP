@@ -2,7 +2,7 @@
    FILE: src/services/parser-service.ts
    ================================================ */
 import { db } from '@/db/dexie';
-import type { SemanticNode } from '@/types';
+import type { SemanticNode, PropertyValue } from '@/types';
 
 interface CachedDocPayload {
   blocks: Map<string, string>; // Map<nodeId, contentText>
@@ -62,7 +62,7 @@ class ParserService {
 
     let insideBlock = false;
     let currentType = '';
-    let currentMeta: Record<string, unknown> = {};
+    let currentMeta: Record<string, PropertyValue> = {};
     let currentLines: string[] = [];
 
     // 逐行扫描并跟踪位置

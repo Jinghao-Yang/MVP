@@ -1,11 +1,10 @@
 /* ================================================
    FILE: src/editor/EditorSidebar.tsx
    ================================================ */
-import { memo } from 'react';
 import { MessageSquare } from 'lucide-react';
 import type { EditorSidebarProps } from '@/types';
 
-export const EditorSidebar = memo(function EditorSidebar({ isZenMode }: EditorSidebarProps) {
+export function EditorSidebar({ isZenMode }: EditorSidebarProps) {
   return (
     <aside
       id="editor-context-panel"
@@ -51,4 +50,4 @@ export const EditorSidebar = memo(function EditorSidebar({ isZenMode }: EditorSi
       </div>
     </aside>
   );
-});
+}

@@ -3,7 +3,7 @@
    ================================================ */
 import { create } from 'zustand';
 import { db } from '@/db/dexie';
-import type { SemanticNode } from '@/types';
+import type { SemanticNode, PropertyValue } from '@/types';
 
 export interface EntityGraphState {
   // 内存 Identity Map: 保证全站运行只有一个对应 ID 的响应式引用
@@ -12,7 +12,7 @@ export interface EntityGraphState {
   // 建立或同步内存快照
   registerNodes: (nodes: SemanticNode[]) => void;
   // 局部细粒度修改元数据属性，瞬间激发订阅视图
-  patchNodeProperties: (nodeId: string, updates: Record<string, unknown>) => Promise<void>;
+  patchNodeProperties: (nodeId: string, updates: Record<string, PropertyValue>) => Promise<void>;
   // 清洗内存
   clearGraph: () => void;
 }

@@ -2,12 +2,31 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig } from 'vite';
+import { compression } from 'vite-plugin-compression2';
+
+const ReactCompilerConfig = {
+  target: '19',
+};
 
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production';
   
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react({
+        babel: {
+          plugins: [
+            ['babel-plugin-react-compiler', ReactCompilerConfig],
+          ],
+        },
+      }),
+      tailwindcss(),
+      compression({
+        algorithms: ['gzip', 'brotliCompress'],
+        threshold: 1024,
+        deleteOriginalAssets: false,
+      }),
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
@@ -31,11 +50,28 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 1000,
       rollupOptions: {
         output: {
-          manualChunks: {
-            'react-vendor': ['react', 'react-dom'],
-            'codemirror': ['@uiw/react-codemirror', '@codemirror/lang-markdown', '@codemirror/view'],
-            'dnd-kit': ['@dnd-kit/core', '@dnd-kit/utilities'],
-            'other-vendor': ['lucide-react', 'motion/react', 'dexie', 'zustand'],
+          manualChunks: (id) => {
+            if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('react-dom')) {
+                return 'react-vendor';
+              }
+              if (id.includes('@codemirror/view') || id.includes('@codemirror/state')) {
+                return 'codemirror-view';
+              }
+              if (id.includes('@uiw/react-codemirror') || id.includes('@codemirror/lang-markdown')) {
+                return 'codemirror-editor';
+              }
+              if (id.includes('@dnd-kit/core')) {
+                return 'dnd-kit-core';
+              }
+              if (id.includes('@dnd-kit/utilities')) {
+                return 'dnd-kit-utils';
+              }
+              if (id.includes('lucide-react') || id.includes('motion/react') || id.includes('dexie') || id.includes('zustand')) {
+                return 'other-vendor';
+              }
+              return 'vendor';
+            }
           },
         },
       },
@@ -47,11 +83,11 @@ export default defineConfig(({ mode }) => {
     server: {
       force: false,
     },
-    // Vitest 配置
     test: {
       globals: true,
-      environment: 'node',
-      include: ['src/**/*.test.ts'],
+      environment: 'jsdom',
+      include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+      setupFiles: ['./src/test-setup.ts'],
     },
   };
 });

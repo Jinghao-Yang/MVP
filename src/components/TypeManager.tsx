@@ -1,12 +1,13 @@
 /* ================================================
    FILE: src/components/TypeManager.tsx
    ================================================ */
-import { useState } from 'react';
+import { useState, useActionState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/dexie';
 import { toast } from 'sonner';
 import { X, Plus, Trash2, Edit2, Check } from 'lucide-react';
 import * as Icons from 'lucide-react';
+import type { LucideProps } from 'lucide-react';
 
 // Help helper to resolve Lucide dynamic icons with fallback
 export function CustomLucideIcon({
@@ -16,8 +17,8 @@ export function CustomLucideIcon({
   name: string;
   className?: string;
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const IconComponent = (Icons as any)[name] || Icons.HelpCircle;
+  const IconComponent =
+    (Icons as unknown as Record<string, React.FC<LucideProps>>)[name] || Icons.HelpCircle;
   return <IconComponent className={className} />;
 }
 
@@ -53,6 +54,53 @@ interface TypeManagerProps {
   onClose: () => void;
 }
 
+interface ActionState {
+  error: string | null;
+  success: boolean;
+}
+
+async function createTypeAction(prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const typeName = (formData.get('typeName') as string).trim();
+  const selectedIcon = formData.get('selectedIcon') as string;
+
+  if (!typeName) {
+    return { error: 'Please enter an object type name.', success: false };
+  }
+
+  const typeId = typeName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '');
+
+  if (!typeId) {
+    return { error: 'Invalid name. Type ID cannot be empty.', success: false };
+  }
+
+  const existing = await db.objectTypes.get(typeId);
+  if (existing) {
+    return { error: `A type with ID "${typeId}" already exists.`, success: false };
+  }
+
+  try {
+    await db.objectTypes.put({
+      id: typeId,
+      name: typeName,
+      icon: selectedIcon,
+    });
+
+    await db.properties.bulkPut([
+      { id: `prop-${typeId}-status`, typeId: typeId, name: 'Status', dataType: 'text' },
+      { id: `prop-${typeId}-notes`, typeId: typeId, name: 'Notes', dataType: 'text' },
+    ]);
+
+    toast.success(`Successfully registered "${typeName}" object type!`);
+    return { error: null, success: true };
+  } catch (err) {
+    console.error(err);
+    return { error: 'Failed to create new object type.', success: false };
+  }
+}
+
 export function TypeManager({ isOpen, onClose }: TypeManagerProps) {
   const objectTypes = useLiveQuery(() => db.objectTypes.toArray(), []);
   const documents = useLiveQuery(() => db.documents.toArray(), []);
@@ -62,54 +110,17 @@ export function TypeManager({ isOpen, onClose }: TypeManagerProps) {
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
+  const [state, formAction, isPending] = useActionState(createTypeAction, {
+    error: null,
+    success: false,
+  });
+
   if (!isOpen) return null;
 
   const handleCreateType = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedName = typeName.trim();
-    if (!trimmedName) {
-      toast.error('Please enter an object type name.');
-      return;
-    }
-
-    // Auto generate clean snake_case id
-    const typeId = trimmedName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)+/g, '');
-
-    if (!typeId) {
-      toast.error('Invalid name. Type ID cannot be empty.');
-      return;
-    }
-
-    // Check collision
-    const existing = await db.objectTypes.get(typeId);
-    if (existing) {
-      toast.error(`A type with ID "${typeId}" already exists.`);
-      return;
-    }
-
-    try {
-      await db.objectTypes.put({
-        id: typeId,
-        name: trimmedName,
-        icon: selectedIcon,
-      });
-
-      // Also auto seed properties for this new type so it's fully compatible
-      await db.properties.bulkPut([
-        { id: `prop-${typeId}-status`, typeId: typeId, name: 'Status', dataType: 'text' },
-        { id: `prop-${typeId}-notes`, typeId: typeId, name: 'Notes', dataType: 'text' },
-      ]);
-
-      setTypeName('');
-      setSelectedIcon('Layers');
-      toast.success(`Successfully registered "${trimmedName}" object type!`);
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to create new object type.');
-    }
+    setTypeName('');
+    setSelectedIcon('Layers');
   };
 
   const handleDeleteType = async (typeId: string) => {
@@ -205,7 +216,8 @@ export function TypeManager({ isOpen, onClose }: TypeManagerProps) {
           <h4 className="text-[10px] font-mono uppercase tracking-wider font-bold text-neutral-400">
             Define New Object Type
           </h4>
-          <form onSubmit={handleCreateType} className="space-y-4">
+          <form action={formAction} onSubmit={handleCreateType} className="space-y-4">
+            <input type="hidden" name="selectedIcon" value={selectedIcon} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 font-bold block">
@@ -213,6 +225,7 @@ export function TypeManager({ isOpen, onClose }: TypeManagerProps) {
                 </label>
                 <input
                   type="text"
+                  name="typeName"
                   placeholder="e.g. Restaurant, Paper, Client"
                   value={typeName}
                   onChange={(e) => setTypeName(e.target.value)}
@@ -262,12 +275,15 @@ export function TypeManager({ isOpen, onClose }: TypeManagerProps) {
               </div>
             </div>
 
+            {state.error && <p className="text-xs text-red-500 font-bold">{state.error}</p>}
+
             <button
               type="submit"
-              className="w-full py-2 bg-neutral-900 text-white rounded font-sys text-xs font-bold hover:bg-neutral-800 transition-colors flex items-center justify-center gap-1.5 shadow"
+              disabled={isPending}
+              className="w-full py-2 bg-neutral-900 text-white rounded font-sys text-xs font-bold hover:bg-neutral-800 transition-colors flex items-center justify-center gap-1.5 shadow disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
-              <span>CREATE OBJECT TYPE</span>
+              <span>{isPending ? 'CREATING...' : 'CREATE OBJECT TYPE'}</span>
             </button>
           </form>
         </div>
